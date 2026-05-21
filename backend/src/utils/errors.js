@@ -10,6 +10,7 @@ const ERROR_CODES = {
   TRANSACTION_FAILED:   { statusCode: 500 },
   UNAUTHORIZED:         { statusCode: 401 },
   VALIDATION_ERROR:     { statusCode: 400 },
+  NOT_FOUND:            { statusCode: 404 },
 };
 
 class AppError extends Error {
@@ -63,6 +64,12 @@ class ValidationError extends AppError {
   }
 }
 
+class NotFoundError extends AppError {
+  constructor(message = '리소스를 찾을 수 없습니다.') {
+    super(message, 'NOT_FOUND');
+  }
+}
+
 module.exports = {
   ERROR_CODES,
   AppError,
@@ -73,4 +80,5 @@ module.exports = {
   TransactionFailedError,
   UnauthorizedError,
   ValidationError,
+  NotFoundError,
 };

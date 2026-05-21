@@ -1,14 +1,21 @@
 'use strict';
 
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const authMiddleware = require('../middleware/auth.middleware');
-const { pay, paymentValidation } = require('../controllers/transaction.controller');
+const {
+  pay,  paymentValidation,
+  list, listValidation,
+  getById,
+} = require('../controllers/transaction.controller');
 
-// POST /transactions/payment
-// 1) authMiddleware: JWT 검증 → req.user 설정
-// 2) paymentValidation: 입력값 검증
-// 3) pay: 결제 처리 (11단계)
+// POST /transactions/payment — 결제 처리
 router.post('/payment', authMiddleware, paymentValidation, pay);
+
+// GET /transactions — 내 결제 내역 목록 (커서 페이지네이션)
+router.get('/', authMiddleware, listValidation, list);
+
+// GET /transactions/:id — 단일 영수증 조회
+router.get('/:id', authMiddleware, getById);
 
 module.exports = router;
