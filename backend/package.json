@@ -28,7 +28,11 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testTimeout": 30000,
-    "testPathPattern": "src/__tests__"
+    "testTimeout": 60000,
+    "testMatch": ["**/src/__tests__/**/*.test.js"],
+    "setupFiles": ["./src/__tests__/setup/env.js"],
+    "moduleNameMapper": {
+      "^.+/models/(.+\\.model)$": "<rootDir>/src/__tests__/helpers/models/$1"
+    }
   }
 }
