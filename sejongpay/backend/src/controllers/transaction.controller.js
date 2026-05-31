@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const paymentService = require('../services/payment.service');
+const transactionService = require('../services/transaction.service');
 const asyncHandler = require('../middlewares/asyncHandler');
 const { ok, fail } = require('../utils/response');
 
@@ -39,29 +40,40 @@ const postPayment = asyncHandler(async (req, res) => {
 /**
  * GET /api/v1/transactions
  *
- * 거래 목록 조회 — 실제 쿼리 API 는 나중 스토리에서 구현한다.
- * TODO(G007): 거래 목록 페이지네이션 쿼리 구현
+ * 거래 목록 조회 — 커서 페이지네이션 (G007)
+ * Query: cursor, limit, type, from, to
  */
 // req.user injected by auth middleware (유현석)
 const listTransactions = asyncHandler(async (req, res) => {
-  // TODO(G007): 거래 목록 페이지네이션 쿼리 구현 (나중 스토리)
-  res
-    .status(501)
-    .json(fail('NOT_IMPLEMENTED', '거래 목록 조회는 추후 구현 예정입니다.'));
+  const userId = req.user.userId;
+  const { cursor, type, from, to } = req.query;
+  const limit = req.query.limit !== undefined ? Number(req.query.limit) : undefined;
+
+  const result = await transactionService.listTransactions({
+    userId,
+    cursor,
+    limit,
+    type,
+    from,
+    to,
+  });
+
+  res.json(ok(result));
 });
 
 /**
  * GET /api/v1/transactions/:id
  *
- * 거래 단건 조회 — 실제 쿼리 API 는 나중 스토리에서 구현한다.
- * TODO(G007): 거래 단건 조회 구현
+ * 거래 단건 조회 — 영수증 상세 (G007)
  */
 // req.user injected by auth middleware (유현석)
 const getTransaction = asyncHandler(async (req, res) => {
-  // TODO(G007): 거래 단건 조회 구현 (나중 스토리)
-  res
-    .status(501)
-    .json(fail('NOT_IMPLEMENTED', '거래 단건 조회는 추후 구현 예정입니다.'));
+  const userId = req.user.userId;
+  const transactionId = req.params.id;
+
+  const tx = await transactionService.getTransactionById({ userId, transactionId });
+
+  res.json(ok(tx));
 });
 
 module.exports = { postPayment, listTransactions, getTransaction };

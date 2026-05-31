@@ -102,6 +102,12 @@ class InternalError extends AppError {
   }
 }
 
+class NotFoundError extends AppError {
+  constructor(message = '요청한 리소스를 찾을 수 없습니다.', details) {
+    super('NOT_FOUND', 404, message, details);
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -116,4 +122,5 @@ module.exports = {
   CouponExpiredError,
   CouponAlreadyUsedError,
   InternalError,
+  NotFoundError,
 };
