@@ -1,0 +1,994 @@
+# ============================================================
+# SejongPay Transactions & QR API — OpenAPI 3.0.3 specification
+# Owner: 김태형 (Payment Core)
+# Branch: taehyeong
+# Generated from: actual implementation in sejongpay/backend/src/
+#
+# ─── MERGE-SAFETY NOTE (유현석 Swagger와 합칠 때) ───────────
+#
+# This file covers 김태형's domain only:
+#   - POST /api/v1/transactions/payment
+#   - GET  /api/v1/transactions
+#   - GET  /api/v1/transactions/{id}
+#   - POST /api/v1/merchants/{id}/qrcode/dynamic
+#
+# When merging into the team's sejongpay/docs/api-contract.swagger.yaml,
+# the following components are SHARED/canonical and MUST be deduplicated
+# (keep exactly one copy, preferring whichever was defined first):
+#
+#   SHARED (deduplicate on merge):
+#     components/schemas/ErrorResponse       — used by both domains
+#     components/schemas/Pagination          — cursor shape used by both domains
+#     components/schemas/ErrorCode           — all 12 error codes; add any new
+#                                              codes from 유현석's domain to this enum
+#     components/securitySchemes/bearerAuth  — single JWT scheme for the whole API
+#
+#   THIS DOMAIN ONLY (keep as-is, no rename needed):
+#     components/schemas/PaymentRequest      — payment-specific, no collision risk
+#     components/schemas/Transaction         — payment-specific, no collision risk
+#     components/schemas/TransactionListData — payment-specific, no collision risk
+#     components/schemas/UserWalletRef       — reference fragment, not a full resource
+#
+#   NAMING CONVENTION to avoid collisions:
+#     All schema names above are already domain-qualified (Transaction, PaymentRequest).
+#     유현석's auth/user schemas should use prefixes like AuthToken, UserProfile, etc.
+#     If both domains define a "Merchant" or "User" schema, the canonical version
+#     should live in shared components and be $ref'd from both domain specs.
+#
+#   MERGE PROCEDURE (recommended):
+#     1. Take 유현석's api-contract.swagger.yaml as the base.
+#     2. Append this file's paths/* under the base's paths.
+#     3. Merge components/schemas: copy DOMAIN-ONLY schemas as-is; for SHARED
+#        schemas, keep the base version and drop duplicates from this file.
+#     4. Ensure bearerAuth is defined once in securitySchemes.
+#     5. Re-validate with `npx @redocly/cli lint api-contract.swagger.yaml`.
+# ============================================================
+
+openapi: 3.0.3
+
+info:
+  title: SejongPay Transactions & QR API (김태형)
+  description: |
+    세종페이 결제 트랜잭션 및 동적 QR 생성 API.
+
+    **도메인 소유:** 김태형 (Payment Core)
+
+    **인증:** 모든 엔드포인트는 Bearer JWT 토큰 필요.
+    JWT 검증 미들웨어는 유현석이 구현하며 `req.user.userId`를 주입한다.
+    클라이언트는 `Authorization: Bearer <access_token>` 헤더를 전송해야 한다.
+
+    **금액 규칙:** 모든 금액 필드는 원(KRW) 단위 정수. `float`/`decimal` 타입 불가.
+
+    **QR 토큰 규칙:** `merchantId`는 클라이언트가 직접 제공하지 않는다.
+    결제 시 QR 토큰을 검증(HMAC-SHA256)하여 서버가 `merchantId`를 추출한다.
+  version: 1.0.0
+  contact:
+    name: 김태형 (Payment Core)
+    email: taehyeong@example.com
+
+servers:
+  - url: http://localhost:4000
+    description: 로컬 개발 서버
+  - url: https://sejongpay-api.up.railway.app
+    description: Railway 프로덕션 (플레이스홀더 — 실제 URL은 배포 후 갱신)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Transactions
+    description: 결제 트랜잭션 — 결제 처리, 목록 조회, 단건 조회
+  - name: MerchantQR
+    description: 가맹점 동적 QR 토큰 발급 (김태형 담당 엔드포인트만)
+  - name: WalletRef
+    description: |
+      지갑 잔액 참고 정보. 실제 지갑 엔드포인트(충전 등)는 유현석 소유 범위.
+      클라이언트는 GET /api/v1/users/me (유현석 도메인)의 응답에서
+      `walletBalance` 필드를 읽어 잔액을 표시한다.
+
+paths:
+  /api/v1/transactions/payment:
+    post:
+      operationId: postPayment
+      tags: [Transactions]
+      summary: 결제 처리
+      description: |
+        QR 토큰을 검증하고 결제를 실행한다.
+
+        **⚠️ merchantId 없음:** 클라이언트는 `merchantId`를 요청에 포함하지 않는다.
+        `qrToken`을 HMAC-SHA256으로 검증하여 서버가 `merchantId`를 추출한다.
+
+        **멱등성:** `idempotencyKey`(UUID)가 동일한 재요청은 기존 결과를 그대로 반환한다.
+        단, 같은 키로 다른 `amount`를 보내면 `DUPLICATE_TRANSACTION` 에러가 발생한다.
+
+        **Rate limit:** 분당 10회 (`paymentLimiter` 미들웨어).
+
+        **결제 11단계 요약:**
+        ① 멱등성 fast-path → ② QR 검증 → ③ 쿠폰 검증 → ④ 잔액 사전 확인 →
+        ② nonce 소비 → ⑤ MongoDB 세션 시작 → ⑥ 잔액 차감(atomic $gte) →
+        ⑦ Transaction 생성 → ③ 쿠폰 사용 처리 → ⑧ 캐시백 적립 →
+        ⑨ 스탬프 적립(유현석 도메인) → ⑩ 알림 생성(유현석 도메인) → ⑪ 커밋
+      security:
+        - bearerAuth: []
+      x-rateLimit: "10 req/min per user IP (paymentLimiter)"
+      x-notes:
+        - "모든 금액(amount, balanceBefore, balanceAfter 등)은 원 단위 정수(integer)"
+        - "merchantId는 클라이언트가 제공하지 않음 — qrToken 검증 결과에서 파생됨"
+        - "userId는 JWT에서 추출 (req.user.userId) — 요청 바디 포함 금지"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+            examples:
+              happy_path:
+                summary: 정상 결제 (쿠폰 없음)
+                value:
+                  qrToken: "SP-DYN-eyJtZXJjaGFudElkIjoiNjY3OGFiY2QxMjM0NTY3ODkwYWJjZGVmIiwiZXhwIjoxNzE3MDAwMDAwLCJub25jZSI6InV1aWQtbm9uY2UtMTIzIn0.abc123hmac"
+                  amount: 12500
+                  idempotencyKey: "550e8400-e29b-41d4-a716-446655440000"
+              with_coupon:
+                summary: 정상 결제 (쿠폰 적용)
+                value:
+                  qrToken: "SP-DYN-eyJtZXJjaGFudElkIjoiNjY3OGFiY2QxMjM0NTY3ODkwYWJjZGVmIiwiZXhwIjoxNzE3MDAwMDAwLCJub25jZSI6InV1aWQtbm9uY2UtNDU2In0.def456hmac"
+                  amount: 20000
+                  idempotencyKey: "660e8400-e29b-41d4-a716-446655440001"
+                  couponId: "6678abcd1234567890abcd01"
+      responses:
+        '201':
+          description: 결제 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Transaction'
+              examples:
+                success:
+                  summary: 결제 성공 응답
+                  value:
+                    success: true
+                    data:
+                      _id: "6678abcd1234567890abcde0"
+                      transactionNo: "SP-20240531-123456789"
+                      userId: "6678abcd1234567890ab0001"
+                      merchantId: "6678abcd1234567890abcdef"
+                      type: "payment"
+                      status: "completed"
+                      amount: 12500
+                      balanceBefore: 50000
+                      balanceAfter: 37500
+                      cashbackAmount: 0
+                      cashbackRate: null
+                      feeAmount: 0
+                      couponId: null
+                      couponDiscount: 0
+                      qrToken: "SP-DYN-eyJ..."
+                      description: null
+                      failureReason: null
+                      idempotencyKey: "550e8400-e29b-41d4-a716-446655440000"
+                      completedAt: "2024-05-31T09:00:00.000Z"
+                      createdAt: "2024-05-31T09:00:00.000Z"
+                      updatedAt: "2024-05-31T09:00:00.000Z"
+        '400':
+          description: |
+            잘못된 요청. 다음 에러 코드가 반환될 수 있다:
+            - `INSUFFICIENT_BALANCE` — 지갑 잔액 부족
+            - `INVALID_QR_TOKEN` — QR 토큰 무효/만료/서명 불일치
+            - `VALIDATION_ERROR` — 입력값 형식 오류 (amount ≤ 0, idempotencyKey 누락 등)
+            - `COUPON_EXPIRED` — 쿠폰 만료
+            - `COUPON_ALREADY_USED` — 쿠폰 이미 사용됨
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficient_balance:
+                  summary: 잔액 부족
+                  value:
+                    success: false
+                    error:
+                      code: INSUFFICIENT_BALANCE
+                      message: "잔액이 부족합니다."
+                      details:
+                        required: 12500
+                        current: 5000
+                invalid_qr_token:
+                  summary: QR 토큰 무효
+                  value:
+                    success: false
+                    error:
+                      code: INVALID_QR_TOKEN
+                      message: "QR 토큰이 무효하거나 만료되었습니다."
+                validation_error:
+                  summary: 입력 검증 실패
+                  value:
+                    success: false
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "결제 금액은 1 이상의 정수여야 합니다."
+                      details:
+                        amount: 0
+                coupon_expired:
+                  summary: 쿠폰 만료
+                  value:
+                    success: false
+                    error:
+                      code: COUPON_EXPIRED
+                      message: "쿠폰이 만료되었습니다."
+                coupon_already_used:
+                  summary: 쿠폰 이미 사용
+                  value:
+                    success: false
+                    error:
+                      code: COUPON_ALREADY_USED
+                      message: "이미 사용된 쿠폰입니다."
+        '401':
+          description: 인증 실패 — JWT 토큰 없음 또는 만료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  summary: 인증 실패
+                  value:
+                    success: false
+                    error:
+                      code: UNAUTHORIZED
+                      message: "인증에 실패했습니다."
+        '404':
+          description: |
+            리소스 없음:
+            - `MERCHANT_NOT_FOUND` — QR 토큰의 가맹점이 존재하지 않음
+            - `USER_NOT_FOUND` — JWT의 사용자가 존재하지 않음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                merchant_not_found:
+                  summary: 가맹점 없음
+                  value:
+                    success: false
+                    error:
+                      code: MERCHANT_NOT_FOUND
+                      message: "가맹점을 찾을 수 없습니다."
+                user_not_found:
+                  summary: 사용자 없음
+                  value:
+                    success: false
+                    error:
+                      code: USER_NOT_FOUND
+                      message: "사용자를 찾을 수 없습니다."
+        '409':
+          description: |
+            충돌:
+            - `DUPLICATE_TRANSACTION` — 동일 `idempotencyKey`로 다른 `amount` 재요청
+            - `CONCURRENCY_ERROR` — 동시 결제 충돌 (재시도 권장)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate_transaction:
+                  summary: 중복 결제 요청
+                  value:
+                    success: false
+                    error:
+                      code: DUPLICATE_TRANSACTION
+                      message: "동일 idempotencyKey로 다른 결제 요청"
+                concurrency_error:
+                  summary: 동시성 충돌
+                  value:
+                    success: false
+                    error:
+                      code: CONCURRENCY_ERROR
+                      message: "동시 요청으로 처리에 실패했습니다. 다시 시도해 주세요."
+        '429':
+          description: Rate limit 초과 — 분당 10회 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limited:
+                  summary: Rate limit 초과
+                  value:
+                    success: false
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "Too many requests, please try again later."
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internal_error:
+                  summary: 서버 오류
+                  value:
+                    success: false
+                    error:
+                      code: INTERNAL_ERROR
+                      message: "서버 내부 오류가 발생했습니다."
+
+  /api/v1/transactions:
+    get:
+      operationId: listTransactions
+      tags: [Transactions]
+      summary: 거래 목록 조회
+      description: |
+        인증된 사용자 본인의 거래 목록을 커서 페이지네이션으로 반환한다.
+
+        **Owner-scoped:** `userId`는 JWT에서 추출. 본인 거래만 반환된다.
+
+        **정렬:** `createdAt` 내림차순, `_id` 내림차순 타이브레이커.
+
+        **커서:** 불투명(opaque) base64 문자열. 클라이언트는 파싱하지 말고
+        응답의 `pagination.nextCursor`를 다음 요청의 `cursor` 파라미터로 그대로 전달.
+
+        **날짜 필터:** `from`/`to`는 ISO 8601 UTC 형식 (`2024-05-01T00:00:00Z`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            이전 페이지 응답의 `pagination.nextCursor` 값 (불투명 base64 문자열).
+            첫 페이지 요청 시 생략.
+          example: "MjAyNC0wNS0zMVQwOTowMDowMC4wMDBaXzY2NzhhYmNkMTIzNDU2Nzg5MGFiY2RlMA=="
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: "페이지 크기 (기본값 20, 범위 1-50)"
+          example: 20
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [payment, charge, cashback, refund, stamp_reward]
+          description: "거래 타입 필터"
+          example: payment
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "시작 날짜 (inclusive, ISO 8601 UTC)"
+          example: "2024-05-01T00:00:00Z"
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "종료 날짜 (inclusive, ISO 8601 UTC)"
+          example: "2024-05-31T23:59:59Z"
+      responses:
+        '200':
+          description: 거래 목록 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TransactionListData'
+              examples:
+                happy_path:
+                  summary: 거래 목록 응답 (다음 페이지 있음)
+                  value:
+                    success: true
+                    data:
+                      items:
+                        - _id: "6678abcd1234567890abcde0"
+                          transactionNo: "SP-20240531-123456789"
+                          userId: "6678abcd1234567890ab0001"
+                          merchantId: "6678abcd1234567890abcdef"
+                          type: "payment"
+                          status: "completed"
+                          amount: 12500
+                          balanceBefore: 50000
+                          balanceAfter: 37500
+                          cashbackAmount: 0
+                          cashbackRate: null
+                          feeAmount: 0
+                          couponId: null
+                          couponDiscount: 0
+                          idempotencyKey: "550e8400-e29b-41d4-a716-446655440000"
+                          completedAt: "2024-05-31T09:00:00.000Z"
+                          createdAt: "2024-05-31T09:00:00.000Z"
+                          updatedAt: "2024-05-31T09:00:00.000Z"
+                      pagination:
+                        limit: 20
+                        hasMore: true
+                        nextCursor: "MjAyNC0wNS0zMVQwOTowMDowMC4wMDBaXzY2NzhhYmNkMTIzNDU2Nzg5MGFiY2RlMA=="
+                last_page:
+                  summary: 마지막 페이지 (다음 페이지 없음)
+                  value:
+                    success: true
+                    data:
+                      items: []
+                      pagination:
+                        limit: 20
+                        hasMore: false
+                        nextCursor: null
+        '400':
+          description: 입력 검증 실패 (잘못된 limit, type, from/to 형식 등)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_type:
+                  summary: 잘못된 type 값
+                  value:
+                    success: false
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "type 은 payment, charge, cashback, refund, stamp_reward 중 하나여야 합니다."
+                      details:
+                        type: "unknown_type"
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transactions/{id}:
+    get:
+      operationId: getTransaction
+      tags: [Transactions]
+      summary: 거래 단건 조회 (영수증)
+      description: |
+        거래 ID로 단건 거래를 조회한다. 가맹점 정보(`name`, `category`, `address`)가 포함된다.
+
+        **Owner-scoped:** 본인 거래만 조회 가능.
+
+        **⚠️ 정보 유출 방지:** 존재하지 않는 거래와 다른 사용자의 거래를
+        구분하지 않고 동일하게 `404 NOT_FOUND`를 반환한다.
+        이는 의도적인 보안 설계이며 구현 코드에 명시적으로 문서화되어 있다.
+
+        **Merchant populate:** `merchantId` 필드는 거래 단건 조회 시
+        `{ name, category, address }` 객체로 populate된다.
+        목록 조회(`GET /transactions`)에서는 ObjectId 문자열로 반환된다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f\d]{24}$'
+          description: "거래 ObjectId (24자 hex)"
+          example: "6678abcd1234567890abcde0"
+      responses:
+        '200':
+          description: 거래 단건 성공 (가맹점 정보 populate 포함)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Transaction'
+              examples:
+                happy_path:
+                  summary: 거래 단건 응답 (가맹점 populate)
+                  value:
+                    success: true
+                    data:
+                      _id: "6678abcd1234567890abcde0"
+                      transactionNo: "SP-20240531-123456789"
+                      userId: "6678abcd1234567890ab0001"
+                      merchantId:
+                        _id: "6678abcd1234567890abcdef"
+                        name: "세종대학교 학생식당"
+                        category: "음식점"
+                        address: "세종특별자치시 조치원읍 세종로 2000"
+                      type: "payment"
+                      status: "completed"
+                      amount: 12500
+                      balanceBefore: 50000
+                      balanceAfter: 37500
+                      cashbackAmount: 0
+                      cashbackRate: null
+                      feeAmount: 0
+                      couponId: null
+                      couponDiscount: 0
+                      idempotencyKey: "550e8400-e29b-41d4-a716-446655440000"
+                      completedAt: "2024-05-31T09:00:00.000Z"
+                      createdAt: "2024-05-31T09:00:00.000Z"
+                      updatedAt: "2024-05-31T09:00:00.000Z"
+        '400':
+          description: 잘못된 거래 ID 형식 (24자 hex ObjectId가 아닌 경우)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                malformed_id:
+                  summary: 잘못된 ID 형식
+                  value:
+                    success: false
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "올바르지 않은 거래 ID 형식입니다."
+                      details:
+                        transactionId: "not-an-objectid"
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            거래를 찾을 수 없음 — `NOT_FOUND`.
+
+            **⚠️ 보안:** 존재하지 않는 거래와 다른 사용자의 거래를 구분하지 않고
+            동일한 404를 반환한다 (정보 유출 방지 설계).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  summary: 거래 없음 또는 권한 없음
+                  value:
+                    success: false
+                    error:
+                      code: NOT_FOUND
+                      message: "요청한 리소스를 찾을 수 없습니다."
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/merchants/{id}/qrcode/dynamic:
+    post:
+      operationId: postDynamicQr
+      tags: [MerchantQR]
+      summary: 가맹점 동적 QR 토큰 발급
+      description: |
+        가맹점의 동적 QR 토큰을 생성한다.
+
+        **QR 토큰 형식:** `SP-DYN-<base64url(payload)>.<hmac>`
+        - payload: `{ merchantId, exp, nonce }`
+        - 서명: HMAC-SHA256 (`merchant.dynamicQrSecret`)
+        - 만료: 발급 시점으로부터 10분
+        - 일회성: nonce 소비로 replay 방지 (`qrTokenService.consumeNonce`)
+
+        **권한:** 가맹점 owner만 발급 가능.
+        현재 구현에서 owner 체크는 TODO 상태이며 유현석의 RBAC 미들웨어 연동 후 활성화된다.
+        (`TODO: verify req.user is the merchant owner` — merchant-qr.controller.js)
+
+        **결제 시 merchantId 파생:**
+        클라이언트가 이 QR 토큰을 결제 요청(`POST /transactions/payment`)에 전달하면
+        서버가 토큰을 검증하여 `merchantId`를 추출한다. 클라이언트는 `merchantId`를
+        별도로 전달하지 않는다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f\d]{24}$'
+          description: "가맹점 ObjectId (24자 hex)"
+          example: "6678abcd1234567890abcdef"
+      responses:
+        '200':
+          description: QR 토큰 생성 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [qrToken]
+                    properties:
+                      qrToken:
+                        type: string
+                        description: |
+                          동적 QR 토큰 (형식: SP-DYN-<base64url>.<hmac>).
+                          HMAC-SHA256 서명, 10분 만료, 일회성 nonce 포함.
+                          결제 시 그대로 `PaymentRequest.qrToken`에 전달한다.
+                        example: "SP-DYN-eyJtZXJjaGFudElkIjoiNjY3OGFiY2QxMjM0NTY3ODkwYWJjZGVmIiwiZXhwIjoxNzE3MDAwMDAwLCJub25jZSI6InV1aWQtbm9uY2UtMTIzIn0.abc123hmac"
+              examples:
+                happy_path:
+                  summary: QR 토큰 발급 성공
+                  value:
+                    success: true
+                    data:
+                      qrToken: "SP-DYN-eyJtZXJjaGFudElkIjoiNjY3OGFiY2QxMjM0NTY3ODkwYWJjZGVmIiwiZXhwIjoxNzE3MDAwMDAwLCJub25jZSI6InV1aWQtbm9uY2UtMTIzIn0.abc123hmac"
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: |
+            권한 없음 — 가맹점 owner가 아닌 사용자가 요청.
+
+            **현재 구현 상태:** owner 체크는 TODO. 유현석 RBAC 미들웨어 연동 후 활성화.
+            활성화 시 `FORBIDDEN` 코드로 반환된다.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden:
+                  summary: 가맹점 owner 아님
+                  value:
+                    success: false
+                    error:
+                      code: FORBIDDEN
+                      message: "권한이 없습니다."
+        '404':
+          description: 가맹점 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                merchant_not_found:
+                  summary: 가맹점 없음
+                  value:
+                    success: false
+                    error:
+                      code: MERCHANT_NOT_FOUND
+                      message: "가맹점을 찾을 수 없습니다."
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    # SHARED (deduplicate on merge with 유현석 spec)
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Access Token. 유현석의 auth 미들웨어가 발급 및 검증.
+        만료: 15분 (ACCESS_TOKEN_EXPIRES_IN=15m).
+        갱신: POST /api/v1/auth/refresh (유현석 도메인).
+
+  schemas:
+    # ── 요청 스키마 ───────────────────────────────────────────────
+
+    PaymentRequest:
+      # DOMAIN-ONLY: 이 파일 고유 스키마. merge 시 그대로 유지.
+      type: object
+      required:
+        - qrToken
+        - amount
+        - idempotencyKey
+      properties:
+        qrToken:
+          type: string
+          description: |
+            동적 QR 토큰 (형식: SP-DYN-<base64url>.<hmac>).
+            서버가 HMAC-SHA256 검증 후 merchantId를 추출한다.
+            클라이언트는 merchantId를 별도로 제공하지 않는다.
+          example: "SP-DYN-eyJtZXJjaGFudElkIjoiNjY3OGFiY2QxMjM0NTY3ODkwYWJjZGVmIiwiZXhwIjoxNzE3MDAwMDAwLCJub25jZSI6InV1aWQtbm9uY2UtMTIzIn0.abc123hmac"
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            결제 금액 (원 단위 정수). 1 이상의 양의 정수만 허용.
+            float, decimal, 문자열 불가. 최대 100,000,000원.
+          example: 12500
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: |
+            중복 결제 방지 UUID. 클라이언트가 생성하여 전송.
+            동일 키의 재요청은 기존 결과를 반환 (멱등성 보장).
+            동일 키에 다른 amount는 DUPLICATE_TRANSACTION 에러.
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        couponId:
+          type: string
+          pattern: '^[a-f\d]{24}$'
+          nullable: true
+          description: |
+            사용할 쿠폰 ObjectId (선택). 생략 또는 null이면 쿠폰 없이 결제.
+            본인 소유의 미사용·미만료 발급(issued) 쿠폰만 사용 가능.
+          example: "6678abcd1234567890abcd01"
+      x-notes:
+        - "merchantId는 이 요청에 포함하지 않음 — qrToken에서 서버가 파생"
+        - "userId는 이 요청에 포함하지 않음 — JWT에서 서버가 파생 (req.user.userId)"
+
+    # ── 응답 스키마 ───────────────────────────────────────────────
+
+    Transaction:
+      # DOMAIN-ONLY: 이 파일 고유 스키마. merge 시 그대로 유지.
+      type: object
+      description: |
+        거래 문서. Transaction.model.js(강동한) 스키마와 1:1 대응.
+        `GET /transactions/{id}` 응답에서는 `merchantId`가 객체로 populate됨.
+        `GET /transactions` 목록에서는 `merchantId`가 ObjectId 문자열.
+      properties:
+        _id:
+          type: string
+          pattern: '^[a-f\d]{24}$'
+          description: "MongoDB ObjectId"
+          example: "6678abcd1234567890abcde0"
+        transactionNo:
+          type: string
+          description: "거래 번호 (형식: SP-YYYYMMDD-<seq><rand>)"
+          example: "SP-20240531-123456789"
+        userId:
+          type: string
+          pattern: '^[a-f\d]{24}$'
+          description: "결제 사용자 ObjectId"
+          example: "6678abcd1234567890ab0001"
+        merchantId:
+          description: |
+            가맹점 참조. 목록 조회에서는 ObjectId 문자열.
+            단건 조회에서는 `{ _id, name, category, address }` 객체로 populate.
+          oneOf:
+            - type: string
+              pattern: '^[a-f\d]{24}$'
+              description: "ObjectId 문자열 (목록 조회 시)"
+              example: "6678abcd1234567890abcdef"
+            - type: object
+              description: "Populate된 가맹점 객체 (단건 조회 시)"
+              properties:
+                _id:
+                  type: string
+                  example: "6678abcd1234567890abcdef"
+                name:
+                  type: string
+                  example: "세종대학교 학생식당"
+                category:
+                  type: string
+                  example: "음식점"
+                address:
+                  type: string
+                  example: "세종특별자치시 조치원읍 세종로 2000"
+        type:
+          type: string
+          enum: [payment, charge, cashback, refund, stamp_reward]
+          description: "거래 유형"
+          example: payment
+        status:
+          type: string
+          enum: [pending, completed, failed, cancelled, refunded]
+          description: "거래 상태"
+          example: completed
+        amount:
+          type: integer
+          format: int64
+          description: "거래 금액 (원 단위 정수). 결제의 경우 쿠폰 할인 전 원래 금액."
+          example: 12500
+        balanceBefore:
+          type: integer
+          format: int64
+          nullable: true
+          description: "거래 직전 지갑 잔액 (원 단위 정수)"
+          example: 50000
+        balanceAfter:
+          type: integer
+          format: int64
+          nullable: true
+          description: "거래 직후 지갑 잔액 (원 단위 정수, 캐시백 적립 전)"
+          example: 37500
+        cashbackAmount:
+          type: integer
+          format: int64
+          description: "캐시백 금액 (원 단위 정수, 기본값 0)"
+          default: 0
+          example: 0
+        cashbackRate:
+          type: number
+          nullable: true
+          description: "캐시백 비율 (0.0-1.0). cashback 타입 거래에서 사용."
+          example: null
+        feeAmount:
+          type: integer
+          format: int64
+          description: "수수료 금액 (원 단위 정수, 기본값 0)"
+          default: 0
+          example: 0
+        couponId:
+          type: string
+          pattern: '^[a-f\d]{24}$'
+          nullable: true
+          description: "사용된 쿠폰 ObjectId (없으면 null)"
+          example: null
+        couponDiscount:
+          type: integer
+          format: int64
+          description: "쿠폰 할인액 (원 단위 정수, 기본값 0)"
+          default: 0
+          example: 0
+        qrToken:
+          type: string
+          nullable: true
+          description: "결제 시 사용된 QR 토큰 (payment 타입에만 존재)"
+          example: "SP-DYN-eyJ..."
+        description:
+          type: string
+          nullable: true
+          description: "거래 설명 (선택)"
+          example: null
+        failureReason:
+          type: string
+          nullable: true
+          description: "실패 사유 (failed 상태 거래에만 존재)"
+          example: null
+        idempotencyKey:
+          type: string
+          format: uuid
+          nullable: true
+          description: "중복 방지 키 (payment 타입에만 존재)"
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: "결제 완료 시각 (ISO 8601 UTC)"
+          example: "2024-05-31T09:00:00.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          description: "생성 시각 (MongoDB timestamps, ISO 8601 UTC)"
+          example: "2024-05-31T09:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: "수정 시각 (MongoDB timestamps, ISO 8601 UTC)"
+          example: "2024-05-31T09:00:00.000Z"
+
+    TransactionListData:
+      # DOMAIN-ONLY: 이 파일 고유 스키마. merge 시 그대로 유지.
+      type: object
+      required: [items, pagination]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: "거래 목록 (최대 limit 건)"
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      # SHARED: merge 시 유현석 spec의 Pagination과 중복이면 하나만 유지.
+      type: object
+      required: [limit, hasMore, nextCursor]
+      description: "커서 페이지네이션 메타데이터 (listTransactions 응답)"
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: "이 페이지의 실제 limit"
+          example: 20
+        hasMore:
+          type: boolean
+          description: "다음 페이지 존재 여부"
+          example: true
+        nextCursor:
+          type: string
+          nullable: true
+          description: |
+            다음 페이지 조회용 불투명 커서 (base64 인코딩).
+            `hasMore: false`이면 `null`.
+            클라이언트는 파싱하지 말고 다음 요청의 `cursor` 파라미터로 그대로 전달.
+          example: "MjAyNC0wNS0zMVQwOTowMDowMC4wMDBaXzY2NzhhYmNkMTIzNDU2Nzg5MGFiY2RlMA=="
+
+    UserWalletRef:
+      # DOMAIN-ONLY: 클라이언트 참고용 스키마 조각. 완전한 User 스키마는 유현석 소유.
+      type: object
+      description: |
+        지갑 잔액 참고 필드 조각.
+
+        실제 User 문서는 유현석 도메인(`GET /api/v1/users/me`)에서 관리된다.
+        클라이언트는 해당 응답의 `data.walletBalance`를 읽어 잔액을 표시한다.
+
+        지갑 충전 엔드포인트(`POST /api/v1/users/me/wallet/charge`)는
+        유현석 도메인이며 이 스펙의 범위 밖이다.
+      properties:
+        walletBalance:
+          type: integer
+          format: int64
+          description: |
+            현재 지갑 잔액 (원 단위 정수).
+            캐시: Users 컬렉션 캐시값. 진실의 원천은 Transactions 합산.
+          example: 37500
+
+    ErrorResponse:
+      # SHARED: merge 시 유현석 spec의 ErrorResponse와 중복이면 하나만 유지.
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+              description: "사용자 표시용 한국어 메시지"
+              example: "잔액이 부족합니다."
+            details:
+              description: |
+                추가 컨텍스트 (개발 환경에서만 포함, production 생략 가능).
+                필드 없음 자체가 정보 — 없으면 키를 생략한다 (null이 아닌 undefined).
+              nullable: true
+              example:
+                required: 12500
+                current: 5000
+
+    ErrorCode:
+      # SHARED: merge 시 유현석 spec의 ErrorCode enum과 중복이면 하나로 합산.
+      # 유현석 도메인에 추가 코드가 있으면 이 enum에 병합.
+      type: string
+      description: |
+        표준 에러 코드 (CONVENTIONS.md 12개 + NOT_FOUND).
+        새 코드 추가 시 docs/error-codes.md에 먼저 등록.
+      enum:
+        - VALIDATION_ERROR       # 400 — Joi/zod 입력 검증 실패
+        - UNAUTHORIZED           # 401 — 인증 실패 (JWT 없음/만료)
+        - FORBIDDEN              # 403 — 권한 없음
+        - USER_NOT_FOUND         # 404 — 사용자 없음
+        - MERCHANT_NOT_FOUND     # 404 — 가맹점 없음
+        - NOT_FOUND              # 404 — 일반 리소스 없음 (owner-scoped 포함)
+        - INSUFFICIENT_BALANCE   # 400 — 지갑 잔액 부족
+        - INVALID_QR_TOKEN       # 400 — QR 토큰 무효/만료/서명 불일치
+        - DUPLICATE_TRANSACTION  # 409 — 중복 결제 (동일 idempotencyKey + 다른 amount)
+        - CONCURRENCY_ERROR      # 409 — 동시성 충돌 (atomic 업데이트 실패)
+        - COUPON_EXPIRED         # 400 — 쿠폰 만료
+        - COUPON_ALREADY_USED    # 400 — 쿠폰 이미 사용됨
+        - INTERNAL_ERROR         # 500 — 서버 내부 오류
+      example: INSUFFICIENT_BALANCE
