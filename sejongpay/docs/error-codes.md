@@ -102,6 +102,9 @@ CLAUDE.md / README.md에 명시된 표준 코드. 전 팀원 공통 사용.
    ```
 3. 모든 에러는 throw → `error-handler` 미들웨어가 표준 형식으로 변환해 응답한다.
 4. `message`는 항상 사용자 친화적 한국어. 내부 정보(스택, 쿼리 등)는 `details`(개발 환경)에만.
+5. **`VALIDATION_ERROR`의 `details`** 는 운영에서도 `{ fields: string[], reason: string }` 형식으로 내려준다
+   (프론트가 어떤 입력이 문제인지 표시용). 예: `{ "fields": ["lat"], "reason": "required_number" }`
+   (권세현·유현석 합의, 2026-05)
 
 ---
 

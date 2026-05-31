@@ -861,11 +861,17 @@ components:
               success: { type: boolean, example: true }
               data: { type: object, nullable: true }
     ValidationError:
-      description: 입력 검증 실패
+      description: |
+        입력 검증 실패. details.fields 에 문제 입력, details.reason 에 사유를 명시한다.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
-          example: { success: false, error: { code: VALIDATION_ERROR, message: 입력값이 올바르지 않습니다. } }
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: 입력값이 올바르지 않습니다.
+              details: { fields: ['lat'], reason: required_number }
     Unauthorized:
       description: 인증 실패
       content:
@@ -989,7 +995,10 @@ components:
           type: number
           description: "캐시백 비율을 소수로 표기 (0.02 = 2%). 결제 시 Math.floor(amount*rate). 프론트는 *100 하여 % 표시. ⚠️ 정수 %(5) 아님"
           example: 0.02
-        thumbnailImage: { type: string, nullable: true, description: "Merchant.images[0]. placeholder 규칙은 시드(강동한)와 통일" }
+        thumbnailImage:
+          type: string
+          description: "Merchant.images[0]. 없으면 백엔드가 https://picsum.photos/seed/{_id}/200 로 fallback (UI 깨짐 방지). 시드 단계도 동일 picsum 패턴"
+          example: https://picsum.photos/seed/665f1a2b/200
     MerchantNearby:
       # 프론트 types.ts(NearbyResponse.Merchant)와 1:1 일치. 결제 진입(staticQrCode)은
       # 상세(GET /merchants/{id})에서 받는다 → 목록 응답엔 미포함.
