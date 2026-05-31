@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QRScanner · Preview</title>
+
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="tokens.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      fontFamily: { sans: ['Pretendard','ui-sans-serif','system-ui','sans-serif'], mono: ['"JetBrains Mono"','ui-monospace','monospace'] },
+      colors: {
+        primary: { 50:'#FCF2F4',100:'#F8E1E6',200:'#EFBAC4',300:'#E08294',400:'#C84E68',500:'#A91D3A',600:'#8B0029',700:'#6E0020',800:'#530018',900:'#3A0010' },
+        beige:   { 50:'#FBF7F0',100:'#F5EDDF',200:'#EBDDC2',300:'#DDC79A',400:'#C9AC73',500:'#B08F54',600:'#8A6E3F',700:'#65512E' },
+        cash:    { 50:'#ECFDF5',500:'#10B981',700:'#047857' },
+        error:   '#EF4444',
+        ink:     { 50:'#F7F7F8',100:'#EFEFF2',300:'#D1D2D8',500:'#8B8C95',700:'#4A4B53',900:'#1A1B20' },
+        surface: { card:'var(--surface-card)', sunken:'var(--surface-sunken)' },
+        content: { primary:'var(--content-primary)', secondary:'var(--content-secondary)', muted:'var(--content-muted)' },
+        border:  { DEFAULT:'var(--border-default)', strong:'var(--border-strong)' },
+      },
+      boxShadow: { focus:'0 0 0 4px rgba(169,29,58,0.20)' },
+      transitionDuration: { fast:'140ms', base:'200ms', slow:'320ms' },
+      keyframes: {
+        'sheet-in': { '0%':{transform:'translateY(100%)'},'100%':{transform:'translateY(0)'} },
+        'fade-in':  { '0%':{opacity:'0'},'100%':{opacity:'1'} },
+        'scan-line':{ '0%':{transform:'translateY(0)'},'50%':{transform:'translateY(246px)'},'100%':{transform:'translateY(0)'} },
+      },
+      animation: {
+        'sheet-in':'sheet-in 320ms cubic-bezier(0.22,1,0.36,1) both',
+        'fade-in': 'fade-in 200ms cubic-bezier(0.22,1,0.36,1) both',
+        'scan-line':'scan-line 2.4s ease-in-out infinite',
+      },
+    }}
+  }
+</script>
+
+<style>
+  html, body { font-family: 'Pretendard', ui-sans-serif, system-ui, sans-serif; }
+  body { background:#1A1B20; color:#F7F7F8; -webkit-font-smoothing:antialiased; min-height:100vh; }
+  .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0); background-size: 16px 16px; }
+
+  .phone { width:380px; height:760px; background:#000; border-radius:44px; border:8px solid #0a0a0a;
+           box-shadow: 0 24px 60px -20px rgba(0,0,0,0.6), 0 8px 20px -10px rgba(139,0,41,0.25);
+           overflow:hidden; position:relative; }
+  .phone-notch { position:absolute; top:8px; left:50%; transform:translateX(-50%);
+                 width:110px; height:28px; background:#000; border-radius:999px; z-index:30; }
+  .status-bar { height:44px; display:flex; align-items:flex-end; justify-content:space-between;
+                padding:0 22px 6px 22px; font-size:13px; font-weight:600; color:#fff;
+                position:relative; z-index:20; background:rgba(0,0,0,0.6); }
+  .home-indicator { position:absolute; bottom:7px; left:50%; transform:translateX(-50%);
+                    width:120px; height:4px; background:#fff; border-radius:999px; opacity:0.85; z-index:30; }
+
+  /* fake camera background — simulate a busy table-top scene */
+  .fake-camera {
+    background:
+      radial-gradient(circle at 20% 30%, rgba(169,29,58,0.25), transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(176,143,84,0.20), transparent 45%),
+      radial-gradient(circle at 50% 50%, #2a2a30, #0a0b10);
+    position: relative;
+  }
+  .fake-camera::before {
+    content:''; position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 12px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 8px);
+    pointer-events:none;
+  }
+  .fake-camera::after {
+    content:''; position:absolute; inset:0; background:
+      radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.4) 100%);
+    pointer-events:none;
+  }
+
+  /* QR placeholder inside fake camera */
+  .qr-placeholder {
+    width: 180px; height: 180px; border-radius: 8px;
+    background: white;
+    background-image:
+      linear-gradient(white 0 0),
+      conic-gradient(from 0deg, #000 25%, #fff 0 50%, #000 0 75%, #fff 0);
+    background-size: 100% 100%, 24px 24px;
+    background-blend-mode: normal, multiply;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  /* tiny QR-ish dot grid */
+  .qr-fake {
+    display: grid; grid-template-columns: repeat(11, 1fr); gap: 0;
+    width: 180px; height: 180px; padding: 14px; background: white; border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .qr-fake span { background:#000; aspect-ratio:1; }
+  .qr-fake span.b { background:transparent; }
+
+  .scan-line {
+    position: absolute; left: 4px; right: 4px; height: 2px; top: 0;
+    background: linear-gradient(90deg, transparent, rgba(169,29,58,0.0), rgba(169,29,58,0.8), rgba(169,29,58,0.0), transparent);
+    box-shadow: 0 0 12px rgba(169,29,58,0.7);
+    border-radius: 999px;
+  }
+
+  /* tweaks panel */
+  .tweaks {
+    position: fixed; right: 24px; top: 24px; width: 280px;
+    background: #14151A; border: 1px solid #2A2C35; border-radius: 16px; padding: 16px;
+    color: #F7F7F8; box-shadow: 0 14px 40px -12px rgba(0,0,0,0.65);
+    z-index: 100;
+  }
+</style>
+</head>
+<body class="dark font-sans">
+
+<div class="grid-bg min-h-screen">
+  <header class="max-w-[1180px] mx-auto px-8 py-8">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-9 h-9 rounded-xl bg-primary-600 text-white grid place-items-center font-bold text-lg">세</div>
+      <div class="text-sm tracking-wide text-content-secondary">SejongPay · QRScanner</div>
+      <div class="ml-auto text-xs font-mono text-content-muted">src/pages/payment/QRScanner.tsx</div>
+    </div>
+    <h1 class="text-[36px] leading-[1.1] font-bold tracking-[-0.02em]">
+      QR 스캐너 · <span class="text-primary-300">미리보기</span>
+    </h1>
+    <p class="mt-3 text-content-secondary max-w-[680px] text-[15px] leading-relaxed">
+      카메라 권한이 없는 미리보기 환경이라 시뮬레이션 모드로 렌더링합니다. 우측 패널에서 상태를 전환해 보세요 —
+      스캐너 / 권한 거부 / 카메라 오류 / 수동 입력 시트 모두 확인할 수 있어요.
+    </p>
+  </header>
+
+  <div class="px-8 pb-24 flex justify-center">
+    <div id="phone-mount" class="relative"></div>
+  </div>
+</div>
+
+<div id="tweaks-mount"></div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="qr-preview.jsx"></script>
+
+</body>
+</html>
