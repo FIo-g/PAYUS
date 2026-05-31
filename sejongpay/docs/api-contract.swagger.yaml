@@ -324,7 +324,7 @@ paths:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
         - { name: category, in: query, schema: { $ref: '#/components/schemas/MerchantCategory' } }
-        - { name: keyword, in: query, schema: { type: string }, description: 이름 부분 일치(case-insensitive) }
+        - { name: q, in: query, schema: { type: string }, description: 가맹점명 부분 일치(case-insensitive) }
       responses:
         '200':
           description: 성공 (페이지네이션)
@@ -377,12 +377,12 @@ paths:
         - { name: lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 }, example: 127.2858 }
         - { name: radius, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 }, description: 미터 }
         - { name: category, in: query, schema: { $ref: '#/components/schemas/MerchantCategory' } }
-        - { name: keyword, in: query, schema: { type: string } }
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
+        - { name: q, in: query, schema: { type: string }, description: 가맹점명 부분 일치(case-insensitive) }
       responses:
         '200':
-          description: 성공
+          description: |
+            성공. 반경 내 가맹점을 distance 오름차순으로 **전체 반환**(페이지네이션 없음, MVP).
+            확장 시 cursor 방식 전환 예정.
           content:
             application/json:
               schema:
@@ -985,16 +985,20 @@ components:
         address: { type: string }
         rating: { type: number, example: 4.5 }
         reviewCount: { type: integer }
-        cashbackRate: { type: number, example: 0.02 }
-        thumbnailImage: { type: string, nullable: true }
+        cashbackRate:
+          type: number
+          description: "캐시백 비율을 소수로 표기 (0.02 = 2%). 결제 시 Math.floor(amount*rate). 프론트는 *100 하여 % 표시. ⚠️ 정수 %(5) 아님"
+          example: 0.02
+        thumbnailImage: { type: string, nullable: true, description: "Merchant.images[0]. placeholder 규칙은 시드(강동한)와 통일" }
     MerchantNearby:
+      # 프론트 types.ts(NearbyResponse.Merchant)와 1:1 일치. 결제 진입(staticQrCode)은
+      # 상세(GET /merchants/{id})에서 받는다 → 목록 응답엔 미포함.
       allOf:
         - $ref: '#/components/schemas/MerchantSummary'
         - type: object
           properties:
             location: { $ref: '#/components/schemas/GeoPoint' }
-            distance: { type: number, description: 미터, example: 123 }
-            staticQrCode: { type: string }
+            distance: { type: number, description: "$geoNear 계산, 미터", example: 123 }
     Merchant:
       type: object
       properties:
