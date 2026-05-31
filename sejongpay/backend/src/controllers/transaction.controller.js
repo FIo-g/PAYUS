@@ -10,7 +10,7 @@
 const paymentService = require('../services/payment.service');
 const transactionService = require('../services/transaction.service');
 const asyncHandler = require('../middlewares/asyncHandler');
-const { ok, fail } = require('../utils/response');
+const { ok } = require('../utils/response');
 
 /**
  * POST /api/v1/transactions/payment
@@ -22,8 +22,6 @@ const { ok, fail } = require('../utils/response');
 const postPayment = asyncHandler(async (req, res) => {
   const { qrToken, amount, couponId, idempotencyKey } = req.body;
 
-  // req.user 는 auth 미들웨어(유현석)가 주입한다.
-  // req.user injected by auth middleware (유현석)
   const userId = req.user.userId;
 
   const tx = await paymentService.processPayment({

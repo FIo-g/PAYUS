@@ -29,6 +29,16 @@ function errorHandler(err, req, res, next) {
       .json(fail(err.code, err.message, err.details));
   }
 
+  // Mongoose CastError / ValidationError → 400 (잘못된 입력 형식)
+  if (err && (err.name === 'CastError' || err.name === 'ValidationError')) {
+    return res.status(400).json(fail('VALIDATION_ERROR', '입력 형식이 올바르지 않습니다.'));
+  }
+
+  // MongoDB 유니크 인덱스 충돌(E11000) → 409
+  if (err && err.code === 11000) {
+    return res.status(409).json(fail('DUPLICATE_TRANSACTION', '중복된 요청입니다.'));
+  }
+
   // 예측 불가 에러: 스택을 응답에 포함시키지 않는다.
   // 개발 환경에서는 서버 콘솔에 전체 스택을 출력하여 디버깅을 돕는다.
   if (NODE_ENV !== 'production') {

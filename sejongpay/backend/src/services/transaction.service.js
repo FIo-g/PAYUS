@@ -79,7 +79,7 @@ function decodeCursor(cursor) {
 
 // ── listTransactions ────────────────────────────────────────────
 /**
- * 거래 목록을 커서 페이지네이션으로 반환한다 (createdAt DESC, _id ASC 타이브레이커).
+ * 거래 목록을 커서 페이지네이션으로 반환한다 (createdAt DESC, _id DESC 타이브레이커).
  *
  * @param {object} args
  * @param {string|mongoose.Types.ObjectId} args.userId  - 필수. 조회 대상 사용자 (owner-scoped)

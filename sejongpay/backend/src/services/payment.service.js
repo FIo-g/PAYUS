@@ -231,7 +231,7 @@ async function _createPaymentTx(doc, session) {
       );
       return created[0];
     } catch (err) {
-      if (err && err.code === 11000 && _isTransactionNoConflict(err)) {
+      if (err && err.code === 11000 && _isE11000ForField(err, 'transactionNo')) {
         // transactionNo만의 충돌 → 번호 재생성 후 재시도.
         lastErr = err;
         continue;
@@ -243,22 +243,13 @@ async function _createPaymentTx(doc, session) {
   throw lastErr; // 3회 모두 transactionNo 충돌 — 극히 드묾.
 }
 
-// E11000이 transactionNo unique 위반인지(idempotencyKey가 아니라) 식별한다.
-function _isTransactionNoConflict(err) {
-  if (err && err.keyPattern && Object.prototype.hasOwnProperty.call(err.keyPattern, 'transactionNo')) {
+// E11000이 특정 필드(field)의 unique 위반인지 식별한다.
+function _isE11000ForField(err, field) {
+  if (err && err.keyPattern && Object.prototype.hasOwnProperty.call(err.keyPattern, field)) {
     return true;
   }
   const msg = (err && err.message) || '';
-  return msg.includes('transactionNo');
-}
-
-// E11000이 idempotencyKey unique 위반인지 식별한다.
-function _isIdempotencyKeyConflict(err) {
-  if (err && err.keyPattern && Object.prototype.hasOwnProperty.call(err.keyPattern, 'idempotencyKey')) {
-    return true;
-  }
-  const msg = (err && err.message) || '';
-  return msg.includes('idempotencyKey');
+  return msg.includes(field);
 }
 
 // 멱등 winner 재조회 — 커밋이 microseconds 늦게 보일 수 있어 짧게 bounded 재시도한다(F2).
@@ -474,7 +465,7 @@ async function processPayment({ qrToken, amount, couponId, idempotencyKey, userI
   } catch (err) {
     // 동시 멱등 요청: 다른 요청이 같은 idempotencyKey로 먼저 커밋했다(E11000, transient 아님).
     // withTransaction은 이 시점에 이미 abort 했다(우리 차감도 롤백됨). 기존 winner를 반환한다.
-    if (err && err.code === 11000 && _isIdempotencyKeyConflict(err)) {
+    if (err && err.code === 11000 && _isE11000ForField(err, 'idempotencyKey')) {
       const winner = await _findIdempotencyWinner(idempotencyKey);
       if (winner) {
         // F5: winner와 금액이 다르면(키 재사용) 잘못된 영수증 반환 방지.

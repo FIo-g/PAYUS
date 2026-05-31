@@ -25,25 +25,22 @@ const { paymentLimiter } = require('../middlewares/rateLimit');
  * 결제 처리. paymentLimiter(분당 10회)가 이 엔드포인트에만 적용된다.
  * req.user 는 auth 미들웨어(유현석)가 주입해야 한다.
  */
-// auth middleware (유현석) mounts here
 router.post('/payment', paymentLimiter, postPayment);
 
 /**
  * GET /api/v1/transactions
  *
- * 거래 목록 조회 (미구현 — TODO G007).
+ * 거래 목록 조회 — 커서 페이지네이션.
  * req.user 는 auth 미들웨어(유현석)가 주입해야 한다.
  */
-// auth middleware (유현석) mounts here
 router.get('/', listTransactions);
 
 /**
  * GET /api/v1/transactions/:id
  *
- * 거래 단건 조회 (미구현 — TODO G007).
+ * 거래 단건 조회 — 영수증 상세.
  * req.user 는 auth 미들웨어(유현석)가 주입해야 한다.
  */
-// auth middleware (유현석) mounts here
 router.get('/:id', getTransaction);
 
 module.exports = router;

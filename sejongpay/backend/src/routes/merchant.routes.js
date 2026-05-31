@@ -28,7 +28,6 @@ const { postDynamicQr } = require('../controllers/merchant-qr.controller');
  * req.user 는 auth 미들웨어(유현석)가 주입해야 한다.
  * 권한(가맹점 owner 여부) 검증은 유현석과 협의 후 추가한다.
  */
-// auth middleware (유현석) mounts here
 router.post('/:id/qrcode/dynamic', postDynamicQr);
 
 // NOTE: 가맹점 목록, 단건 조회, 등록, 수정, 삭제 등
