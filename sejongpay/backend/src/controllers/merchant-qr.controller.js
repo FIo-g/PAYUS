@@ -11,7 +11,7 @@ const Merchant = require('../models/Merchant.model');
 const { generateDynamicQrToken } = require('../services/qr-token.service');
 const asyncHandler = require('../middlewares/asyncHandler');
 const { ok } = require('../utils/response');
-const { MerchantNotFoundError } = require('../utils/errors');
+const { MerchantNotFoundError, ForbiddenError } = require('../utils/errors');
 
 /**
  * POST /api/v1/merchants/:id/qrcode/dynamic
@@ -26,9 +26,10 @@ const postDynamicQr = asyncHandler(async (req, res) => {
     throw new MerchantNotFoundError();
   }
 
-  // TODO: verify req.user is the merchant owner (권한 체크)
-  // 현재는 auth 미들웨어(유현석)의 rbac 또는 별도 검증이 필요하다.
-  // 예시: if (String(merchant.ownerId) !== req.user.userId) throw new ForbiddenError();
+  // owner 권한 체크 (유현석): 본인 가맹점만 동적 QR 발급 가능
+  if (String(merchant.ownerId) !== String(req.user._id)) {
+    throw new ForbiddenError('본인 가맹점만 QR을 발급할 수 있습니다.');
+  }
 
   const qrToken = generateDynamicQrToken({
     merchantId: merchant._id,

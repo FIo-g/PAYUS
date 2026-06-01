@@ -1,0 +1,95 @@
+/* PaymentConfirmModal sketches — shared styles */
+html, body { font-family: 'Pretendard', ui-sans-serif, system-ui, sans-serif; }
+body { background:#FBF7F0; color:#1A1B20; -webkit-font-smoothing:antialiased; }
+
+.grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(26,27,32,0.06) 1px, transparent 0); background-size: 16px 16px; }
+.sj-stripes { background-image: repeating-linear-gradient(135deg, rgba(139,0,41,0.10) 0 6px, rgba(139,0,41,0.04) 6px 12px); }
+
+.phone { width:380px; height:720px; background:#fff; border-radius:44px; border:8px solid #1A1B20;
+         box-shadow:0 24px 60px -20px rgba(26,27,32,0.35), 0 8px 20px -10px rgba(139,0,41,0.25);
+         overflow:hidden; position:relative; }
+.phone-notch { position:absolute; top:8px; left:50%; transform:translateX(-50%);
+               width:110px; height:28px; background:#1A1B20; border-radius:999px; z-index:10; }
+.status-bar { height:44px; display:flex; align-items:flex-end; justify-content:space-between;
+              padding:0 22px 6px 22px; font-size:13px; font-weight:600; }
+.home-indicator { position:absolute; bottom:7px; left:50%; transform:translateX(-50%);
+                  width:120px; height:4px; background:#1A1B20; border-radius:999px; opacity:0.85; }
+
+/* The faint app behind the modal */
+.bg-app { position:absolute; inset:0; padding:8px 20px 20px; pointer-events:none; }
+.bg-app .row { height:14px; background:#EFEFF2; border-radius:6px; margin-bottom:10px; }
+.bg-app .row.short { width:40%; }
+.bg-app .row.mid { width:70%; }
+.bg-app .block { height:120px; background:#EFEFF2; border-radius:14px; margin-bottom:12px; }
+
+.dim { position:absolute; inset:0; background:rgba(26,27,32,0.45); }
+
+.sheet { position:absolute; left:0; right:0; bottom:0; background:#fff; border-radius:24px 24px 0 0;
+         box-shadow:0 -8px 32px -8px rgba(26,27,32,0.18); padding:14px 20px 24px; }
+.handle { width:36px; height:4px; border-radius:999px; background:#D1D2D8; margin:0 auto 10px; }
+.eyebrow { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:11px; letter-spacing:0.08em;
+           text-transform:uppercase; color:#8B8C95; }
+
+/* Money */
+.money { font-size:44px; line-height:1; letter-spacing:-0.03em; font-weight:700;
+         font-variant-numeric: tabular-nums; }
+.money .won { font-size:20px; font-weight:600; color:#4A4B53; margin-left:2px; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Pills / chips */
+.chip-cashback { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px;
+                 background:#ECFDF5; color:#047857; font-size:12px; font-weight:700; }
+
+/* Buttons */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:600;
+       transition:all .15s ease; user-select:none; border:0; cursor:pointer; }
+.btn-lg { height:56px; padding:0 20px; font-size:16px; border-radius:14px; }
+.btn-md { height:44px; padding:0 16px; font-size:14px; border-radius:12px; }
+.btn-primary { background:#A91D3A; color:#fff; box-shadow:0 6px 16px -8px rgba(139,0,41,0.5); }
+.btn-primary:hover { background:#8B0029; }
+.btn-secondary { background:#F5EDDF; color:#65512E; }
+.btn-secondary:hover { background:#EBDDC2; }
+.btn-ghost { background:transparent; color:#4A4B53; }
+.btn-ghost:hover { background:#F7F7F8; }
+.btn[disabled] { opacity:0.5; cursor:not-allowed; }
+
+.row-line { display:flex; align-items:center; justify-content:space-between; padding:10px 0;
+            font-size:13px; }
+.row-line + .row-line { border-top:1px dashed #EFEFF2; }
+
+/* Spinner */
+.spinner { display:inline-block; width:18px; height:18px; border:2.5px solid currentColor;
+           border-right-color:transparent; border-radius:50%; animation:spin 800ms linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Success animations */
+@keyframes scalePop  { 0%{transform:scale(0.6);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+@keyframes ringPulse { 0%{box-shadow:0 0 0 0 rgba(16,185,129,0.45)} 100%{box-shadow:0 0 0 28px rgba(16,185,129,0)} }
+@keyframes checkDraw { from { stroke-dashoffset:40 } to { stroke-dashoffset:0 } }
+@keyframes coinRise  { from { transform:translateY(8px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+@keyframes shakeX    { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+.anim-pop   { animation: scalePop 480ms cubic-bezier(0.34,1.56,0.64,1) both; }
+.anim-pulse { animation: ringPulse 800ms cubic-bezier(0.22,1,0.36,1) 200ms both; }
+.anim-check { stroke-dasharray:40; animation: checkDraw 320ms cubic-bezier(0.65,0,0.35,1) 200ms both; }
+.anim-rise  { animation: coinRise 320ms cubic-bezier(0.22,1,0.36,1) 480ms both; }
+.anim-rise.delay-2 { animation-delay: 640ms; }
+.anim-shake { animation: shakeX 420ms cubic-bezier(0.36,0,0.64,1) both; }
+
+/* Code label below each phone */
+.state-label { display:flex; align-items:baseline; gap:10px; }
+.state-label .num { font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.08em;
+                    text-transform:uppercase; color:#8B8C95; }
+.state-label .key { font-family:'JetBrains Mono', monospace; font-size:13px;
+                    background:#F8E1E6; color:#8B0029; padding:2px 8px; border-radius:6px; }
+.state-label .ko { font-size:14px; font-weight:600; }
+
+/* Coupon row */
+.coupon-row {
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px;
+  background:#FBF7F0; border:1px dashed #EBDDC2;
+}
+.coupon-row .check {
+  width:22px; height:22px; border-radius:6px; background:#A91D3A; color:#fff;
+  display:grid; place-items:center; font-size:12px; font-weight:700; flex-shrink:0;
+}

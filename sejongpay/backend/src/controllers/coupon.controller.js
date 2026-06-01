@@ -1,0 +1,118 @@
+'use strict';
+
+// ─────────────────────────────────────────────────────────────
+// 쿠폰 컨트롤러 (유현석 / Coupon)
+// 발급/수령/조회/검증. 발급/검증 로직 일부는 coupon.service 재사용.
+// ─────────────────────────────────────────────────────────────
+
+const Coupon = require('../models/Coupon.model');
+const Merchant = require('../models/Merchant.model');
+const asyncHandler = require('../middlewares/asyncHandler');
+const { ok } = require('../utils/response');
+const {
+  CouponNotFoundError,
+  CouponSoldOutError,
+  CouponAlreadyUsedError,
+  ForbiddenError,
+  ValidationError,
+} = require('../utils/errors');
+const couponService = require('../services/coupon.service');
+
+function parsePaging(query) {
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(query.limit, 10) || 20, 1), 50);
+  return { page, limit, skip: (page - 1) * limit };
+}
+
+/** GET /coupons/me — 내 보유(issued) 쿠폰 */
+const getMyCoupons = asyncHandler(async (req, res) => {
+  const { isUsed } = req.query;
+  const { page, limit, skip } = parsePaging(req.query);
+
+  const filter = { userId: req.user._id, type: 'issued' };
+  if (isUsed !== undefined) filter.isUsed = isUsed === 'true';
+
+  const [items, total] = await Promise.all([
+    Coupon.find(filter).populate('merchantId', 'name category').sort({ expiresAt: 1 }).skip(skip).limit(limit),
+    Coupon.countDocuments(filter),
+  ]);
+
+  res.json(ok({ items, pagination: { page, limit, total, hasMore: skip + items.length < total } }));
+});
+
+/** GET /coupons/available/:merchantId — 가맹점 수령 가능 템플릿 */
+const getAvailableCoupons = asyncHandler(async (req, res) => {
+  const templates = await Coupon.find({
+    merchantId: req.params.merchantId,
+    type: 'template',
+    expiresAt: { $gt: new Date() },
+  });
+  const available = templates.filter((t) => !t.issueLimit || t.totalIssued < t.issueLimit);
+  res.json(ok(available));
+});
+
+/** POST /coupons/:templateId/claim — 쿠폰 수령 */
+const claimCoupon = asyncHandler(async (req, res) => {
+  const template = await Coupon.findOne({
+    _id: req.params.templateId,
+    type: 'template',
+    expiresAt: { $gt: new Date() },
+  });
+  if (!template) throw new CouponNotFoundError('쿠폰을 찾을 수 없거나 만료되었습니다.');
+  if (template.issueLimit && template.totalIssued >= template.issueLimit) {
+    throw new CouponSoldOutError();
+  }
+  const existing = await Coupon.findOne({ issuedFrom: template._id, userId: req.user._id, isUsed: false });
+  if (existing) throw new CouponAlreadyUsedError('이미 수령한 쿠폰입니다.');
+
+  const issued = await Coupon.create({
+    merchantId: template.merchantId,
+    userId: req.user._id,
+    type: 'issued',
+    title: template.title,
+    discountType: template.discountType,
+    discountValue: template.discountValue,
+    minimumAmount: template.minimumAmount,
+    maxDiscountAmount: template.maxDiscountAmount,
+    issuedFrom: template._id,
+    expiresAt: template.expiresAt,
+  });
+  template.totalIssued += 1;
+  await template.save();
+
+  res.status(201).json(ok(issued));
+});
+
+/** POST /coupons/templates — 쿠폰 템플릿 발행 (가맹점주) */
+const createTemplate = asyncHandler(async (req, res) => {
+  const merchant = await Merchant.findOne({ ownerId: req.user._id });
+  if (!merchant) throw new ForbiddenError('가맹점 정보가 없습니다.');
+  const template = await Coupon.create({ ...req.body, merchantId: merchant._id, type: 'template' });
+  res.status(201).json(ok(template));
+});
+
+/** GET /coupons/:id — 쿠폰 상세 (본인) */
+const getCouponById = asyncHandler(async (req, res) => {
+  const coupon = await Coupon.findOne({ _id: req.params.id, userId: req.user._id }).populate('merchantId', 'name category');
+  if (!coupon) throw new CouponNotFoundError();
+  res.json(ok(coupon));
+});
+
+/** POST /coupons/validate — 결제 전 검증 */
+const validateCoupon = asyncHandler(async (req, res) => {
+  const { couponId, amount } = req.body;
+  if (!couponId || typeof amount !== 'number') {
+    throw new ValidationError('couponId와 정수 amount가 필요합니다.');
+  }
+  const result = await couponService.validateCoupon({ couponId, userId: req.user._id, amount });
+  res.json(ok(result));
+});
+
+module.exports = {
+  getMyCoupons,
+  getAvailableCoupons,
+  claimCoupon,
+  createTemplate,
+  getCouponById,
+  validateCoupon,
+};

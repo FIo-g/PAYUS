@@ -21,8 +21,8 @@ const paymentLimiter = rateLimit({
   windowMs: WINDOW_MS,
   max: 10,
   keyGenerator(req) {
-    // req.user 는 auth 미들웨어(유현석)가 주입. 없으면 IP 단독 사용.
-    const userId = req.user?.userId || 'anonymous';
+    // req.user 는 auth 미들웨어(유현석)가 주입한 User 문서(_id 보유). 없으면 IP 단독 사용.
+    const userId = req.user?._id || 'anonymous';
     return `${req.ip}:${userId}`;
   },
   standardHeaders: true,  // Retry-After 헤더 포함

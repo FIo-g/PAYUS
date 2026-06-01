@@ -14,6 +14,8 @@ const PORT = parseInt(process.env.PORT, 10) || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || '';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || '';
+const JWT_ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 // ALLOWED_ORIGINS: 콤마 구분 문자열 → 배열
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
@@ -44,5 +46,7 @@ module.exports = {
   MONGODB_URI,
   JWT_ACCESS_SECRET,
   JWT_REFRESH_SECRET,
+  JWT_ACCESS_EXPIRES,
+  JWT_REFRESH_EXPIRES,
   ALLOWED_ORIGINS,
 };
