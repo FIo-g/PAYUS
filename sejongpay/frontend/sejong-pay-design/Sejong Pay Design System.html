@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>세종페이 · Design System v0.1</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Pretendard', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+        colors: {
+          // Primary — softened crimson
+          primary: {
+            50:  '#FCF2F4',
+            100: '#F8E1E6',
+            200: '#EFBAC4',
+            300: '#E08294',
+            400: '#C84E68',
+            500: '#A91D3A', // base
+            600: '#8B0029', // deep
+            700: '#6E0020',
+            800: '#530018',
+            900: '#3A0010',
+          },
+          // Secondary — warm beige
+          beige: {
+            50:  '#FBF7F0',
+            100: '#F5EDDF',
+            200: '#EBDDC2',
+            300: '#DDC79A',
+            400: '#C9AC73',
+            500: '#B08F54',
+            600: '#8A6E3F',
+            700: '#65512E',
+            800: '#43361E',
+            900: '#231C10',
+          },
+          // Accent — cashback green
+          cash: {
+            50:  '#ECFDF5',
+            100: '#D1FAE5',
+            500: '#10B981',
+            600: '#059669',
+            700: '#047857',
+          },
+          // Status
+          success: '#10B981',
+          warning: '#F59E0B',
+          error:   '#EF4444',
+          info:    '#3B82F6',
+          // Gray — 6 steps as spec'd
+          ink: {
+            50:  '#F7F7F8',
+            100: '#EFEFF2',
+            300: '#D1D2D8',
+            500: '#8B8C95',
+            700: '#4A4B53',
+            900: '#1A1B20',
+          },
+        },
+        boxShadow: {
+          card: '0 1px 2px rgba(26,27,32,0.04), 0 6px 18px -8px rgba(26,27,32,0.10)',
+          sheet: '0 -8px 32px -8px rgba(26,27,32,0.18)',
+          pop:  '0 12px 36px -12px rgba(139,0,41,0.35)',
+        },
+        borderRadius: {
+          'xl2': '20px',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  html, body { font-family: 'Pretendard', ui-sans-serif, system-ui, sans-serif; }
+  body { background: #FBF7F0; color: #1A1B20; -webkit-font-smoothing: antialiased; }
+  /* subtle dotted grid for canvas */
+  .grid-bg {
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(26,27,32,0.06) 1px, transparent 0);
+    background-size: 16px 16px;
+  }
+  /* placeholder stripes — used for merchant thumbnails */
+  .stripes {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(139,0,41,0.10) 0 6px,
+      rgba(139,0,41,0.04) 6px 12px
+    );
+  }
+  .stripes-beige {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(176,143,84,0.18) 0 6px,
+      rgba(176,143,84,0.06) 6px 12px
+    );
+  }
+  .stripes-green {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(16,185,129,0.18) 0 6px,
+      rgba(16,185,129,0.05) 6px 12px
+    );
+  }
+  /* hide scrollbar on horizontal chips row */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+
+  /* Phone frame */
+  .phone {
+    width: 380px;
+    height: 760px;
+    background: white;
+    border-radius: 44px;
+    border: 8px solid #1A1B20;
+    box-shadow: 0 24px 60px -20px rgba(26,27,32,0.35), 0 8px 20px -10px rgba(139,0,41,0.25);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-notch {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 28px; background: #1A1B20; border-radius: 999px; z-index: 10;
+  }
+  .status-bar {
+    height: 44px; display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 0 22px 6px 22px; font-size: 13px; font-weight: 600; color: #1A1B20;
+  }
+  .home-indicator {
+    position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 4px; background: #1A1B20; border-radius: 999px; opacity: 0.85;
+  }
+
+  /* swatch */
+  .swatch {
+    position: relative;
+    border-radius: 14px;
+    height: 84px;
+    box-shadow: inset 0 0 0 1px rgba(26,27,32,0.06);
+    display: flex; align-items: flex-end;
+    padding: 10px 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .swatch .hex { font-family: 'JetBrains Mono', ui-monospace, monospace; opacity: 0.9; font-weight: 500; }
+  .swatch-ink { color: #1A1B20; }
+
+  /* section number */
+  .sec-num {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.08em; color: #8B8C95;
+    text-transform: uppercase;
+  }
+
+  /* button reset for demo */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+         font-weight: 600; transition: all .15s ease; user-select: none; }
+  .btn:focus-visible { outline: 2px solid #A91D3A; outline-offset: 2px; }
+
+  /* size variants */
+  .btn-sm { height: 36px; padding: 0 14px; font-size: 13px; border-radius: 10px; }
+  .btn-md { height: 44px; padding: 0 18px; font-size: 14px; border-radius: 12px; }
+  .btn-lg { height: 56px; padding: 0 22px; font-size: 16px; border-radius: 14px; }
+
+  /* color variants */
+  .btn-primary { background: #A91D3A; color: white; box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 6px 16px -8px rgba(139,0,41,0.5); }
+  .btn-primary:hover { background: #8B0029; }
+  .btn-primary:active { background: #6E0020; }
+  .btn-primary[disabled] { background: #EFBAC4; color: #FCF2F4; box-shadow: none; cursor: not-allowed; }
+
+  .btn-secondary { background: #F5EDDF; color: #65512E; }
+  .btn-secondary:hover { background: #EBDDC2; }
+  .btn-secondary[disabled] { background: #F7F7F8; color: #D1D2D8; cursor: not-allowed; }
+
+  .btn-ghost { background: transparent; color: #A91D3A; }
+  .btn-ghost:hover { background: #FCF2F4; }
+  .btn-ghost[disabled] { color: #D1D2D8; cursor: not-allowed; }
+
+  /* input */
+  .field {
+    height: 48px; padding: 0 14px; border-radius: 12px; font-size: 15px;
+    background: white; border: 1.5px solid #EFEFF2; width: 100%;
+    transition: all .15s ease;
+  }
+  .field::placeholder { color: #8B8C95; }
+  .field:focus { outline: none; border-color: #A91D3A; box-shadow: 0 0 0 4px rgba(169,29,58,0.10); }
+  .field-error { border-color: #EF4444; }
+  .field-error:focus { box-shadow: 0 0 0 4px rgba(239,68,68,0.12); }
+
+  /* token row */
+  .token {
+    display: grid; grid-template-columns: 120px 1fr auto; gap: 16px; align-items: baseline;
+    padding: 14px 0; border-top: 1px dashed #EFEFF2;
+  }
+  .token:first-child { border-top: 0; }
+  .token .label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: #8B8C95; }
+  .token .meta { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: #8B8C95; white-space: nowrap; }
+
+  /* star icon via css */
+  .star::before { content: "★"; color: #F59E0B; }
+</style>
+</head>
+<body class="font-sans text-ink-900">
+
+<!-- HERO / HEADER -->
+<header class="grid-bg border-b border-ink-100">
+  <div class="max-w-[1180px] mx-auto px-8 py-14">
+    <div class="flex items-center gap-3 mb-6">
+      <!-- monogram -->
+      <div class="w-10 h-10 rounded-xl bg-primary-600 text-white grid place-items-center font-bold text-lg shadow-pop">세</div>
+      <div class="text-sm tracking-wide text-ink-700">SejongPay · 세종페이</div>
+      <div class="ml-auto text-xs font-mono text-ink-500">v0.1 · 2026.05</div>
+    </div>
+    <h1 class="text-[56px] leading-[1.05] font-bold tracking-[-0.02em] max-w-[820px]">
+      캠퍼스를 위한 <span class="text-primary-600">신뢰의 결제</span>,<br/>
+      학생을 위한 <span class="text-beige-600">따뜻한 인터페이스</span>.
+    </h1>
+    <p class="mt-6 text-ink-700 max-w-[640px] text-[17px] leading-relaxed">
+      세종페이 디자인 시스템은 모바일 퍼스트 핀테크 환경에서 결제의 신뢰감과
+      대학가 특유의 친근함을 동시에 전달하기 위한 기본 토큰 모음입니다.
+      Pretendard, 부드럽게 풀어낸 크림슨, 그리고 캐시백을 강조하는 그린이 핵심입니다.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <span class="px-3 py-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-mono">primary / crimson</span>
+      <span class="px-3 py-1.5 rounded-full bg-beige-100 text-beige-700 text-xs font-mono">secondary / beige</span>
+      <span class="px-3 py-1.5 rounded-full bg-cash-50 text-cash-700 text-xs font-mono">accent / cashback</span>
+      <span class="px-3 py-1.5 rounded-full bg-ink-100 text-ink-700 text-xs font-mono">mobile-first · 380px</span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1180px] mx-auto px-8 py-16 space-y-24">
+
+  <!-- ============== 01 · COLORS ============== -->
+  <section>
+    <div class="flex items-baseline gap-4 mb-8">
+      <span class="sec-num">01 / Colors</span>
+      <h2 class="text-3xl font-bold tracking-tight">색상 팔레트</h2>
+    </div>
+
+    <!-- Primary -->
+    <div class="mb-10">
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="text-lg font-semibold">Primary · Crimson</h3>
+        <span class="text-xs text-ink-500">결제·CTA·강조. 기본은 500을 쓰고, hover/active 시 600·700으로 깊게 들어갑니다.</span>
+      </div>
+      <div class="grid grid-cols-5 gap-3">
+        <div class="swatch" style="background:#FCF2F4;"><div class="swatch-ink"><div>50</div><div class="hex">#FCF2F4</div></div></div>
+        <div class="swatch" style="background:#F8E1E6;"><div class="swatch-ink"><div>100</div><div class="hex">#F8E1E6</div></div></div>
+        <div class="swatch" style="background:#EFBAC4;"><div class="swatch-ink"><div>200</div><div class="hex">#EFBAC4</div></div></div>
+        <div class="swatch" style="background:#E08294;"><div class="swatch-ink"><div>300</div><div class="hex">#E08294</div></div></div>
+        <div class="swatch" style="background:#C84E68;"><div>400<div class="hex">#C84E68</div></div></div>
+        <div class="swatch" style="background:#A91D3A;"><div>500 · base<div class="hex">#A91D3A</div></div></div>
+        <div class="swatch" style="background:#8B0029;"><div>600 · deep<div class="hex">#8B0029</div></div></div>
+        <div class="swatch" style="background:#6E0020;"><div>700<div class="hex">#6E0020</div></div></div>
+        <div class="swatch" style="background:#530018;"><div>800<div class="hex">#530018</div></div></div>
+        <div class="swatch" style="background:#3A0010;"><div>900<div class="hex">#3A0010</div></div></div>
+      </div>
+      <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
+        <div class="rounded-xl bg-white border border-ink-100 p-4">
+          <div class="text-xs font-mono text-ink-500 mb-2">USAGE</div>
+          <div>· 결제 버튼, 상단 헤더 강조</div>
+          <div>· 토스트의 confirm 액션</div>
+        </div>
+        <div class="rounded-xl bg-white border border-ink-100 p-4">
+          <div class="text-xs font-mono text-ink-500 mb-2">DO</div>
+          <div>· CTA에는 500을 기본으로</div>
+          <div>· 600은 hover/active 상태에만</div>
+        </div>
+        <div class="rounded-xl bg-white border border-ink-100 p-4">
+          <div class="text-xs font-mono text-ink-500 mb-2">DON'T</div>
+          <div>· 본문 텍스트에 600 이상 사용 금지</div>
+          <div>· 대면적 배경(40% 이상)으로 사용 금지</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary -->
+    <div class="mb-10">
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="text-lg font-semibold">Secondary · Warm Beige</h3>
+        <span class="text-xs text-ink-500">배경·서브 표면. 친근한 캠퍼스 톤을 만듭니다.</span>
+      </div>
+      <div class="grid grid-cols-5 gap-3">
+        <div class="swatch" style="background:#FBF7F0;"><div class="swatch-ink"><div>50</div><div class="hex">#FBF7F0</div></div></div>
+        <div class="swatch" style="background:#F5EDDF;"><div class="swatch-ink"><div>100</div><div class="hex">#F5EDDF</div></div></div>
+        <div class="swatch" style="background:#EBDDC2;"><div class="swatch-ink"><div>200</div><div class="hex">#EBDDC2</div></div></div>
+        <div class="swatch" style="background:#DDC79A;"><div class="swatch-ink"><div>300</div><div class="hex">#DDC79A</div></div></div>
+        <div class="swatch" style="background:#C9AC73;"><div>400<div class="hex">#C9AC73</div></div></div>
+        <div class="swatch" style="background:#B08F54;"><div>500<div class="hex">#B08F54</div></div></div>
+        <div class="swatch" style="background:#8A6E3F;"><div>600<div class="hex">#8A6E3F</div></div></div>
+        <div class="swatch" style="background:#65512E;"><div>700<div class="hex">#65512E</div></div></div>
+        <div class="swatch" style="background:#43361E;"><div>800<div class="hex">#43361E</div></div></div>
+        <div class="swatch" style="background:#231C10;"><div>900<div class="hex">#231C10</div></div></div>
+      </div>
+    </div>
+
+    <!-- Accent / Status / Gray -->
+    <div class="grid grid-cols-3 gap-6">
+      <!-- Accent cashback -->
+      <div>
+        <h3 class="text-lg font-semibold mb-3">Accent · Cashback</h3>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="swatch" style="background:#ECFDF5;"><div class="swatch-ink"><div>50</div><div class="hex">#ECFDF5</div></div></div>
+          <div class="swatch" style="background:#10B981;"><div>500<div class="hex">#10B981</div></div></div>
+          <div class="swatch" style="background:#047857;"><div>700<div class="hex">#047857</div></div></div>
+        </div>
+        <p class="mt-3 text-sm text-ink-700">캐시백 % 표시, 적립 확정 토스트, 성공 상태 아이콘에만 사용.</p>
+      </div>
+
+      <!-- Status -->
+      <div>
+        <h3 class="text-lg font-semibold mb-3">Status</h3>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="swatch" style="background:#10B981;"><div>Success<div class="hex">#10B981</div></div></div>
+          <div class="swatch" style="background:#F59E0B;"><div>Warning<div class="hex">#F59E0B</div></div></div>
+          <div class="swatch" style="background:#EF4444;"><div>Error<div class="hex">#EF4444</div></div></div>
+        </div>
+        <p class="mt-3 text-sm text-ink-700">결제 결과·잔액 부족·인증 오류 등 시스템 피드백 전용.</p>
+      </div>
+
+      <!-- Gray -->
+      <div>
+        <h3 class="text-lg font-semibold mb-3">Ink · Gray scale</h3>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="swatch" style="background:#F7F7F8;"><div class="swatch-ink"><div>50</div><div class="hex">#F7F7F8</div></div></div>
+          <div class="swatch" style="background:#EFEFF2;"><div class="swatch-ink"><div>100</div><div class="hex">#EFEFF2</div></div></div>
+          <div class="swatch" style="background:#D1D2D8;"><div class="swatch-ink"><div>300</div><div class="hex">#D1D2D8</div></div></div>
+          <div class="swatch" style="background:#8B8C95;"><div>500<div class="hex">#8B8C95</div></div></div>
+          <div class="swatch" style="background:#4A4B53;"><div>700<div class="hex">#4A4B53</div></div></div>
+          <div class="swatch" style="background:#1A1B20;"><div>900<div class="hex">#1A1B20</div></div></div>
+        </div>
+        <p class="mt-3 text-sm text-ink-700">50·100 = 배경, 300 = divider, 500 = secondary text, 700·900 = 본문/제목.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== 02 · TYPOGRAPHY ============== -->
+  <section>
+    <div class="flex items-baseline gap-4 mb-8">
+      <span class="sec-num">02 / Type</span>
+      <h2 class="text-3xl font-bold tracking-tight">타이포그래피</h2>
+      <span class="ml-auto text-xs font-mono text-ink-500">Pretendard · 한국어 + 라틴 통합</span>
+    </div>
+
+    <div class="rounded-2xl bg-white border border-ink-100 p-8">
+      <div class="token">
+        <span class="label">Display</span>
+        <div>
+          <div style="font-size: 44px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em;">오늘도 잘 먹었다, 세종페이</div>
+        </div>
+        <span class="meta">44 / 700 / -2%</span>
+      </div>
+      <div class="token">
+        <span class="label">H1</span>
+        <div>
+          <div style="font-size: 32px; line-height: 1.2; font-weight: 700; letter-spacing: -0.015em;">결제 내역과 캐시백</div>
+        </div>
+        <span class="meta">32 / 700 / -1.5%</span>
+      </div>
+      <div class="token">
+        <span class="label">H2</span>
+        <div>
+          <div style="font-size: 24px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em;">근처 가맹점 12곳</div>
+        </div>
+        <span class="meta">24 / 600 / -1%</span>
+      </div>
+      <div class="token">
+        <span class="label">H3</span>
+        <div>
+          <div style="font-size: 20px; line-height: 1.35; font-weight: 600;">이번 달 캐시백 ₩12,400</div>
+        </div>
+        <span class="meta">20 / 600</span>
+      </div>
+      <div class="token">
+        <span class="label">Body L</span>
+        <div>
+          <div style="font-size: 17px; line-height: 1.55; font-weight: 500;">청파동 매머드커피에서 8,500원을 결제했어요. 5% 캐시백이 적립될 예정이에요.</div>
+        </div>
+        <span class="meta">17 / 500</span>
+      </div>
+      <div class="token">
+        <span class="label">Body</span>
+        <div>
+          <div style="font-size: 15px; line-height: 1.55; font-weight: 400; color: #4A4B53;">세종페이는 캠퍼스 근처 가맹점 결제 시 평균 3~7%의 캐시백을 자동으로 적립해 드려요.</div>
+        </div>
+        <span class="meta">15 / 400</span>
+      </div>
+      <div class="token">
+        <span class="label">Caption</span>
+        <div>
+          <div style="font-size: 12px; line-height: 1.4; font-weight: 500; color: #8B8C95;">결제 완료 후 영업일 1~2일 이내 적립됩니다.</div>
+        </div>
+        <span class="meta">12 / 500</span>
+      </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-3 gap-3 text-sm">
+      <div class="rounded-xl bg-white border border-ink-100 p-4">
+        <div class="text-xs font-mono text-ink-500 mb-2">WEIGHTS</div>
+        <div>· 400 Body · 500 Body emphasis</div>
+        <div>· 600 Subtitle · 700 Display/Heading</div>
+      </div>
+      <div class="rounded-xl bg-white border border-ink-100 p-4">
+        <div class="text-xs font-mono text-ink-500 mb-2">금액 표기</div>
+        <div>· 금액은 Heading weight + tabular-nums</div>
+        <div>· ₩ 기호와 숫자 사이는 띄어쓰지 않음</div>
+      </div>
+      <div class="rounded-xl bg-white border border-ink-100 p-4">
+        <div class="text-xs font-mono text-ink-500 mb-2">한글 가독성</div>
+        <div>· line-height ≥ 1.5 (본문)</div>
+        <div>· letter-spacing은 제목에만 음수</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== 03 · COMPONENTS ============== -->
+  <section>
+    <div class="flex items-baseline gap-4 mb-8">
+      <span class="sec-num">03 / Components</span>
+      <h2 class="text-3xl font-bold tracking-tight">컴포넌트</h2>
+    </div>
+
+    <!-- BUTTONS -->
+    <div class="rounded-2xl bg-white border border-ink-100 p-8 mb-6">
+      <div class="flex items-baseline justify-between mb-5">
+        <h3 class="text-lg font-semibold">Button</h3>
+        <span class="text-xs text-ink-500">Primary / Secondary / Ghost · sm 36 / md 44 / lg 56</span>
+      </div>
+
+      <div class="grid grid-cols-[80px_1fr] gap-y-5 items-center">
+        <div class="text-xs font-mono text-ink-500">Primary</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button class="btn btn-primary btn-sm">결제하기</button>
+          <button class="btn btn-primary btn-md">결제하기</button>
+          <button class="btn btn-primary btn-lg">8,500원 결제하기</button>
+          <button class="btn btn-primary btn-md" disabled>결제하기</button>
+        </div>
+
+        <div class="text-xs font-mono text-ink-500">Secondary</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button class="btn btn-secondary btn-sm">다음에</button>
+          <button class="btn btn-secondary btn-md">취소하기</button>
+          <button class="btn btn-secondary btn-lg">나중에 결정하기</button>
+          <button class="btn btn-secondary btn-md" disabled>취소하기</button>
+        </div>
+
+        <div class="text-xs font-mono text-ink-500">Ghost</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button class="btn btn-ghost btn-sm">자세히 보기</button>
+          <button class="btn btn-ghost btn-md">전체 내역 보기</button>
+          <button class="btn btn-ghost btn-lg">계좌 변경하기 →</button>
+          <button class="btn btn-ghost btn-md" disabled>자세히 보기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INPUTS -->
+    <div class="rounded-2xl bg-white border border-ink-100 p-8 mb-6">
+      <div class="flex items-baseline justify-between mb-5">
+        <h3 class="text-lg font-semibold">Input</h3>
+        <span class="text-xs text-ink-500">텍스트 / 비밀번호 / 검색 / 에러</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6">
+        <label class="block">
+          <span class="block text-xs font-semibold text-ink-700 mb-1.5">이름</span>
+          <input class="field" type="text" placeholder="홍길동" value="박세종" />
+        </label>
+
+        <label class="block">
+          <span class="block text-xs font-semibold text-ink-700 mb-1.5">비밀번호</span>
+          <div class="relative">
+            <input class="field pr-12" type="password" value="••••••••" />
+            <button class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-ink-500 hover:text-ink-900">보기</button>
+          </div>
+        </label>
+
+        <label class="block">
+          <span class="block text-xs font-semibold text-ink-700 mb-1.5">가맹점 검색</span>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500">⌕</span>
+            <input class="field pl-9" type="search" placeholder="매머드, 김밥천국, GS25..." />
+          </div>
+        </label>
+
+        <label class="block">
+          <span class="block text-xs font-semibold text-ink-700 mb-1.5">학번</span>
+          <input class="field field-error" type="text" value="20221234" />
+          <span class="block mt-1.5 text-xs text-error">올바른 학번 형식이 아니에요. (10자리)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- BADGES + CARD + SHEET -->
+    <div class="grid grid-cols-2 gap-6">
+      <!-- Badges & Chips -->
+      <div class="rounded-2xl bg-white border border-ink-100 p-8">
+        <div class="flex items-baseline justify-between mb-5">
+          <h3 class="text-lg font-semibold">Badge & Chip</h3>
+          <span class="text-xs text-ink-500">캐시백 강조 / 카테고리</span>
+        </div>
+
+        <div class="text-xs font-mono text-ink-500 mb-2">CASHBACK</div>
+        <div class="flex flex-wrap gap-2 mb-6">
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cash-50 text-cash-700 text-xs font-bold">+ 3% 캐시백</span>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cash-500 text-white text-xs font-bold">+ 5% 캐시백</span>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cash-700 text-white text-xs font-bold">+ 10% 캐시백</span>
+        </div>
+
+        <div class="text-xs font-mono text-ink-500 mb-2">STATUS</div>
+        <div class="flex flex-wrap gap-2 mb-6">
+          <span class="px-2.5 py-1 rounded-full bg-cash-50 text-cash-700 text-xs font-semibold">결제 완료</span>
+          <span class="px-2.5 py-1 rounded-full bg-beige-100 text-beige-700 text-xs font-semibold">적립 대기</span>
+          <span class="px-2.5 py-1 rounded-full bg-primary-50 text-primary-600 text-xs font-semibold">취소됨</span>
+          <span class="px-2.5 py-1 rounded-full bg-ink-100 text-ink-700 text-xs font-semibold">미인증</span>
+        </div>
+
+        <div class="text-xs font-mono text-ink-500 mb-2">CATEGORY CHIPS</div>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+          <button class="shrink-0 px-3.5 py-1.5 rounded-full bg-primary-600 text-white text-sm font-semibold">전체</button>
+          <button class="shrink-0 px-3.5 py-1.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700 text-sm">카페</button>
+          <button class="shrink-0 px-3.5 py-1.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700 text-sm">한식</button>
+          <button class="shrink-0 px-3.5 py-1.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700 text-sm">분식</button>
+          <button class="shrink-0 px-3.5 py-1.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700 text-sm">편의점</button>
+          <button class="shrink-0 px-3.5 py-1.5 rounded-full bg-ink-50 border border-ink-100 text-ink-700 text-sm">서점</button>
+        </div>
+      </div>
+
+      <!-- Merchant Card -->
+      <div class="rounded-2xl bg-white border border-ink-100 p-8">
+        <div class="flex items-baseline justify-between mb-5">
+          <h3 class="text-lg font-semibold">Merchant Card</h3>
+          <span class="text-xs text-ink-500">썸네일 · 이름 · 거리 · 캐시백 · 별점</span>
+        </div>
+
+        <!-- Card 1 -->
+        <div class="rounded-2xl border border-ink-100 p-3 flex gap-3 mb-3 shadow-card">
+          <div class="stripes w-[72px] h-[72px] rounded-xl shrink-0 grid place-items-center">
+            <span class="font-mono text-[10px] text-primary-600">PHOTO</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-semibold text-[15px] truncate">청파동 매머드커피</div>
+              <span class="shrink-0 px-2 py-0.5 rounded-full bg-cash-50 text-cash-700 text-[11px] font-bold">+5%</span>
+            </div>
+            <div class="text-[12px] text-ink-500 mt-0.5">카페 · 도보 3분 · 180m</div>
+            <div class="flex items-center gap-2 mt-1.5 text-[12px]">
+              <span class="star"></span>
+              <span class="font-semibold text-ink-900">4.8</span>
+              <span class="text-ink-500">(284)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="rounded-2xl border border-ink-100 p-3 flex gap-3 mb-3 shadow-card">
+          <div class="stripes-beige w-[72px] h-[72px] rounded-xl shrink-0 grid place-items-center">
+            <span class="font-mono text-[10px] text-beige-700">PHOTO</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-semibold text-[15px] truncate">할매김밥 청파점</div>
+              <span class="shrink-0 px-2 py-0.5 rounded-full bg-cash-500 text-white text-[11px] font-bold">+7%</span>
+            </div>
+            <div class="text-[12px] text-ink-500 mt-0.5">분식 · 도보 5분 · 320m</div>
+            <div class="flex items-center gap-2 mt-1.5 text-[12px]">
+              <span class="star"></span>
+              <span class="font-semibold text-ink-900">4.6</span>
+              <span class="text-ink-500">(112)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="rounded-2xl border border-ink-100 p-3 flex gap-3 shadow-card">
+          <div class="stripes-green w-[72px] h-[72px] rounded-xl shrink-0 grid place-items-center">
+            <span class="font-mono text-[10px] text-cash-700">PHOTO</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-semibold text-[15px] truncate">서점 길벗 · 학습관</div>
+              <span class="shrink-0 px-2 py-0.5 rounded-full bg-cash-700 text-white text-[11px] font-bold">+10%</span>
+            </div>
+            <div class="text-[12px] text-ink-500 mt-0.5">서점 · 캠퍼스 내 · 60m</div>
+            <div class="flex items-center gap-2 mt-1.5 text-[12px]">
+              <span class="star"></span>
+              <span class="font-semibold text-ink-900">4.9</span>
+              <span class="text-ink-500">(58)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== 04 · BOTTOM SHEET + PAYMENT MOCK ============== -->
+  <section>
+    <div class="flex items-baseline gap-4 mb-8">
+      <span class="sec-num">04 / Patterns</span>
+      <h2 class="text-3xl font-bold tracking-tight">BottomSheet · 결제 화면</h2>
+      <span class="ml-auto text-xs font-mono text-ink-500">mobile · 380 × 760</span>
+    </div>
+
+    <div class="flex gap-10 flex-wrap items-start justify-center bg-ink-50 rounded-3xl p-12 grid-bg">
+
+      <!-- ===== BottomSheet phone ===== -->
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="flex items-center gap-1.5">
+            <span class="text-[11px]">●●●●</span>
+            <span class="text-[11px]">5G</span>
+            <span class="inline-block w-6 h-3 rounded-[3px] border border-ink-900 relative">
+              <span class="absolute inset-[1px] right-[7px] bg-ink-900 rounded-[1px]"></span>
+            </span>
+          </span>
+        </div>
+
+        <!-- dimmed background -->
+        <div class="absolute inset-0 top-[44px] bottom-0">
+          <!-- faint underlying app -->
+          <div class="px-5 pt-2 opacity-40 pointer-events-none">
+            <div class="h-5 w-24 bg-ink-100 rounded mb-3"></div>
+            <div class="h-32 bg-ink-100 rounded-xl mb-3"></div>
+            <div class="h-20 bg-ink-100 rounded-xl"></div>
+          </div>
+          <!-- backdrop -->
+          <div class="absolute inset-0 bg-ink-900/40"></div>
+
+          <!-- sheet -->
+          <div class="absolute left-0 right-0 bottom-0 bg-white rounded-t-[24px] shadow-sheet pb-8">
+            <div class="pt-3 pb-1 grid place-items-center">
+              <span class="block w-9 h-1 rounded-full bg-ink-300"></span>
+            </div>
+            <div class="px-5 pt-3 pb-2">
+              <div class="text-[11px] font-mono text-ink-500 tracking-wider">결제 방법 선택</div>
+              <div class="text-[20px] font-bold mt-1">어떻게 결제할까요?</div>
+            </div>
+            <div class="px-5 mt-4 space-y-2">
+              <label class="flex items-center gap-3 p-3.5 border-2 border-primary-500 bg-primary-50/50 rounded-xl cursor-pointer">
+                <span class="w-10 h-10 rounded-lg bg-primary-600 text-white grid place-items-center text-sm font-bold">우리</span>
+                <div class="flex-1">
+                  <div class="font-semibold text-[14px]">우리은행 입출금</div>
+                  <div class="text-[12px] text-ink-500">잔액 ₩482,140</div>
+                </div>
+                <span class="w-5 h-5 rounded-full bg-primary-600 grid place-items-center text-white text-[11px]">✓</span>
+              </label>
+              <label class="flex items-center gap-3 p-3.5 border border-ink-100 rounded-xl cursor-pointer">
+                <span class="w-10 h-10 rounded-lg bg-beige-100 text-beige-700 grid place-items-center text-sm font-bold">국민</span>
+                <div class="flex-1">
+                  <div class="font-semibold text-[14px]">KB국민카드</div>
+                  <div class="text-[12px] text-ink-500">**** 8821</div>
+                </div>
+                <span class="w-5 h-5 rounded-full border-2 border-ink-300"></span>
+              </label>
+              <button class="w-full p-3.5 border border-dashed border-ink-300 rounded-xl text-[13px] text-ink-500 font-semibold hover:bg-ink-50">+ 결제수단 추가하기</button>
+            </div>
+            <div class="px-5 mt-5">
+              <button class="btn btn-primary btn-lg w-full">이 방법으로 결제하기</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+        <div class="absolute -bottom-8 left-0 right-0 text-center text-xs font-mono text-ink-500">BottomSheet · 결제수단 선택</div>
+      </div>
+
+      <!-- ===== Payment phone ===== -->
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="flex items-center gap-1.5">
+            <span class="text-[11px]">●●●●</span>
+            <span class="text-[11px]">5G</span>
+            <span class="inline-block w-6 h-3 rounded-[3px] border border-ink-900 relative">
+              <span class="absolute inset-[1px] right-[7px] bg-ink-900 rounded-[1px]"></span>
+            </span>
+          </span>
+        </div>
+
+        <!-- header -->
+        <div class="px-5 pt-1 pb-4 flex items-center">
+          <button class="w-9 h-9 -ml-2 grid place-items-center text-ink-700 text-lg">←</button>
+          <div class="ml-1 font-semibold">결제</div>
+          <div class="ml-auto text-xs font-mono text-ink-500">SAFE · 256bit</div>
+        </div>
+
+        <!-- merchant -->
+        <div class="px-5">
+          <div class="flex items-center gap-3 p-3.5 rounded-2xl bg-beige-50 border border-beige-100">
+            <div class="stripes w-12 h-12 rounded-xl grid place-items-center">
+              <span class="font-mono text-[9px] text-primary-600">LOGO</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[11px] font-mono text-ink-500">청파동 · 카페</div>
+              <div class="font-semibold text-[15px]">매머드커피 청파점</div>
+            </div>
+            <span class="px-2 py-1 rounded-full bg-cash-50 text-cash-700 text-[11px] font-bold">+5%</span>
+          </div>
+        </div>
+
+        <!-- amount -->
+        <div class="px-5 pt-7 pb-5 text-center">
+          <div class="text-[12px] text-ink-500 font-medium">결제 금액</div>
+          <div class="mt-2 flex items-baseline justify-center gap-1">
+            <span style="font-size:52px; font-weight:700; letter-spacing:-0.03em; font-variant-numeric: tabular-nums;">8,500</span>
+            <span class="text-[22px] font-semibold text-ink-700">원</span>
+          </div>
+
+          <!-- cashback chip -->
+          <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cash-50 text-cash-700 text-[12px] font-bold">
+            <span>↻</span>
+            <span>예상 캐시백 ₩425 적립 예정</span>
+          </div>
+        </div>
+
+        <!-- breakdown -->
+        <div class="px-5">
+          <div class="rounded-2xl border border-ink-100 divide-y divide-ink-100">
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-[13px] text-ink-700">상품 금액</span>
+              <span class="text-[13px] font-semibold" style="font-variant-numeric: tabular-nums;">₩8,500</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-[13px] text-ink-700">학생 즉시 할인</span>
+              <span class="text-[13px] font-semibold text-primary-600" style="font-variant-numeric: tabular-nums;">- ₩0</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+              <span class="text-[13px] text-ink-700">예상 캐시백 (5%)</span>
+              <span class="text-[13px] font-semibold text-cash-700" style="font-variant-numeric: tabular-nums;">+ ₩425</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- pay method mini -->
+        <div class="px-5 mt-4">
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-ink-50">
+            <span class="w-8 h-8 rounded-lg bg-primary-600 text-white grid place-items-center text-[11px] font-bold">우리</span>
+            <div class="flex-1 text-left">
+              <div class="text-[13px] font-semibold leading-tight">우리은행 입출금</div>
+              <div class="text-[11px] text-ink-500">잔액 ₩482,140</div>
+            </div>
+            <span class="text-ink-500 text-[12px]">변경 ›</span>
+          </button>
+        </div>
+
+        <!-- CTA -->
+        <div class="absolute left-0 right-0 bottom-0 px-5 pb-7 pt-3 bg-gradient-to-t from-white via-white to-white/0">
+          <button class="btn btn-primary btn-lg w-full" style="height:60px; font-size:17px;">
+            8,500원 결제하기
+          </button>
+          <div class="text-center text-[11px] text-ink-500 mt-2.5">결제 시 세종페이 이용약관에 동의하게 돼요.</div>
+        </div>
+
+        <div class="home-indicator"></div>
+        <div class="absolute -bottom-8 left-0 right-0 text-center text-xs font-mono text-ink-500">Payment · 결제 화면</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== FOOTER ============== -->
+  <footer class="pt-6 pb-2 border-t border-ink-100 flex items-center justify-between">
+    <div class="text-xs font-mono text-ink-500">세종페이 · Design System v0.1 · Pretendard · Tailwind</div>
+    <div class="text-xs text-ink-500">이 문서가 마음에 들면 → React + Tailwind config로 옮길 준비 완료</div>
+  </footer>
+
+</main>
+
+</body>
+</html>
