@@ -21,7 +21,7 @@ info:
     공통 규칙:
     - 모든 금액은 정수(원 단위).
     - 모든 응답은 { success, data?, error? } 형식.
-    - 페이지네이션: 커서 방식 (?cursor=<opaque>&limit=20) — 목록 응답의 nextCursor를 그대로 전달
+    - 페이지네이션(유현석 도메인 목록): ?page=1&limit=20 (offset). 거래 목록은 김태형 transactions.swagger.yaml의 cursor 방식.
     - 인증: Authorization: Bearer {accessToken}
   contact:
     name: PAYUS 팀 — 고려대학교 세종캠퍼스 KUS R&SD 2026
@@ -321,7 +321,7 @@ paths:
       summary: 가맹점 목록
       security: []
       parameters:
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
         - { name: category, in: query, schema: { $ref: '#/components/schemas/MerchantCategory' } }
         - { name: q, in: query, schema: { type: string }, description: 가맹점명 부분 일치(case-insensitive) }
@@ -503,7 +503,7 @@ paths:
       summary: 가맹점 리뷰 목록
       security: []
       parameters:
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -575,6 +575,25 @@ paths:
                         items: { $ref: '#/components/schemas/Stamp' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/stamps/{id}/redeem:
+    post:
+      tags: [Stamps]
+      summary: 스탬프 리워드 수동 사용
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200':
+          description: 사용 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Stamp' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/v1/stamps/me/{merchantId}:
     get:
       tags: [Stamps]
@@ -606,7 +625,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [available, used, expired] } }
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -649,6 +668,79 @@ paths:
                       data: { $ref: '#/components/schemas/Coupon' }
         '400': { $ref: '#/components/responses/ValidationError' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/coupons/validate:
+    post:
+      tags: [Coupons]
+      summary: 결제 전 쿠폰 검증 (할인액 계산)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [couponId, amount]
+              properties:
+                couponId: { type: string }
+                amount: { type: integer }
+      responses:
+        '200':
+          description: 검증 결과
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          valid: { type: boolean }
+                          discountAmount: { type: integer }
+                          reason: { type: string, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/coupons/available/{merchantId}:
+    get:
+      tags: [Coupons]
+      summary: 가맹점 수령 가능 쿠폰(템플릿) 목록
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: merchantId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Coupon' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/coupons/{templateId}/claim:
+    post:
+      tags: [Coupons]
+      summary: 쿠폰 수령 (template → issued 발급)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: templateId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '201':
+          description: 발급 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Coupon' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: 템플릿 없음/만료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/v1/coupons/{id}:
     get:
@@ -759,7 +851,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: isRead, in: query, schema: { type: boolean } }
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -777,6 +869,26 @@ paths:
                             type: array
                             items: { $ref: '#/components/schemas/Notification' }
                           pagination: { $ref: '#/components/schemas/Pagination' }
+                          unreadCount: { type: integer, example: 3 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: 미읽음 알림 개수
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
                           unreadCount: { type: integer, example: 3 }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -834,11 +946,11 @@ components:
       description: "Authorization: Bearer {accessToken} (Access 15분)"
 
   parameters:
-    Cursor:
-      name: cursor
+    Page:
+      name: page
       in: query
-      schema: { type: string }
-      description: 이전 응답의 nextCursor를 그대로 전달 (커서 페이지네이션). 첫 페이지는 생략.
+      schema: { type: integer, minimum: 1, default: 1 }
+      description: 페이지 번호 (offset 페이지네이션)
     Limit:
       name: limit
       in: query
@@ -936,17 +1048,14 @@ components:
         - INTERNAL_ERROR         # 500
       example: VALIDATION_ERROR
     Pagination:
-      # SHARED(canonical) — main transactions.swagger.yaml과 동일 cursor shape. merge 시 1개만 유지.
+      # 유현석 도메인 목록 = offset 방식 (실제 구현 기준). 거래(cursor)는 transactions.swagger.yaml.
       type: object
-      required: [limit, hasMore, nextCursor]
+      required: [page, limit, total, hasMore]
       properties:
-        limit: { type: integer, minimum: 1, maximum: 50, example: 20 }
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 137 }
         hasMore: { type: boolean, example: true }
-        nextCursor:
-          type: string
-          nullable: true
-          description: 다음 페이지 커서(base64, 불투명). hasMore=false면 null. 다음 요청 cursor로 그대로 전달.
-          example: "MjAyNC0wNS0zMVQwOTowMFpfNjY3OA=="
 
     AuthResult:
       type: object
