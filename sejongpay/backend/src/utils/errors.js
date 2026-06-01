@@ -140,6 +140,31 @@ class NotVerifiedError extends AppError {
   }
 }
 
+// ─── Coupon / Stamp 도메인 에러 (유현석) ─────────────────────
+class CouponNotFoundError extends AppError {
+  constructor(message = '쿠폰을 찾을 수 없습니다.', details) {
+    super('COUPON_NOT_FOUND', 404, message, details);
+  }
+}
+
+class CouponSoldOutError extends AppError {
+  constructor(message = '쿠폰이 모두 소진되었습니다.', details) {
+    super('COUPON_ISSUE_LIMIT_EXCEEDED', 400, message, details);
+  }
+}
+
+class CouponMinimumNotMetError extends AppError {
+  constructor(message = '최소 결제 금액을 충족하지 않습니다.', details) {
+    super('COUPON_MIN_AMOUNT_NOT_MET', 400, message, details);
+  }
+}
+
+class StampNotFoundError extends AppError {
+  constructor(message = '스탬프 카드를 찾을 수 없습니다.', details) {
+    super('STAMP_NOT_FOUND', 404, message, details);
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -161,4 +186,9 @@ module.exports = {
   StudentIdAlreadyExistsError,
   InvalidRefreshTokenError,
   NotVerifiedError,
+  // Coupon/Stamp 도메인 (유현석)
+  CouponNotFoundError,
+  CouponSoldOutError,
+  CouponMinimumNotMetError,
+  StampNotFoundError,
 };

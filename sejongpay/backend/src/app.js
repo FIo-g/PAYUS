@@ -27,6 +27,8 @@ const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
 
 const authRouter = require('./routes/auth.routes');
+const stampRouter = require('./routes/stamp.routes');
+const couponRouter = require('./routes/coupon.routes');
 const transactionRouter = require('./routes/transaction.routes');
 const merchantRouter = require('./routes/merchant.routes');
 
@@ -64,6 +66,8 @@ app.use(generalLimiter);
 // 예: app.use('/api/v1/transactions', authMiddleware, transactionRouter);
 // 현재는 컨트롤러/라우터 내부 주석으로 통합 지점을 표시해 두었다.
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/stamps', stampRouter);
+app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/transactions', transactionRouter);
 app.use('/api/v1/merchants', merchantRouter);
 
