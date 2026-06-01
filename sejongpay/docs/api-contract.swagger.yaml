@@ -918,7 +918,7 @@ components:
               description: 추가 컨텍스트(개발 환경). 없으면 키 생략. VALIDATION_ERROR는 { fields, reason }.
               example: { fields: ['lat'], reason: required_number }
     ErrorCode:
-      # SHARED(canonical) — main errors.js와 1:1. 유현석 도메인 추가코드는 docs/error-codes.md 등록 후 enum 병합(이름은 main 규약 기준).
+      # SHARED(canonical) — main errors.js와 1:1. 유현석 도메인 추가코드는 sejongpay/docs/error-codes.md 등록 후 enum 병합(이름은 main 규약 기준).
       type: string
       enum:
         - VALIDATION_ERROR       # 400
