@@ -21,15 +21,15 @@ info:
     공통 규칙:
     - 모든 금액은 정수(원 단위).
     - 모든 응답은 { success, data?, error? } 형식.
-    - 페이지네이션: ?page=1&limit=20&sort=createdAt&order=desc
+    - 페이지네이션: 커서 방식 (?cursor=<opaque>&limit=20) — 목록 응답의 nextCursor를 그대로 전달
     - 인증: Authorization: Bearer {accessToken}
   contact:
     name: PAYUS 팀 — 고려대학교 세종캠퍼스 KUS R&SD 2026
 
 servers:
-  - url: http://localhost:4000/api/v1
+  - url: http://localhost:4000
     description: 로컬 개발
-  - url: https://sejongpay-api.up.railway.app/api/v1
+  - url: https://sejongpay-api.up.railway.app
     description: 운영(Railway)
 
 tags:
@@ -60,7 +60,7 @@ paths:
   # ---------------------------------------------------------------------------
   #  8.1 Auth — 유현석
   # ---------------------------------------------------------------------------
-  /auth/register:
+  /api/v1/auth/register:
     post:
       tags: [Auth]
       summary: 회원가입 (학번/이메일)
@@ -95,9 +95,9 @@ paths:
           description: 이메일/학번 중복
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
-  /auth/login:
+  /api/v1/auth/login:
     post:
       tags: [Auth]
       summary: 로그인
@@ -125,7 +125,7 @@ paths:
                       data: { $ref: '#/components/schemas/AuthResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /auth/logout:
+  /api/v1/auth/logout:
     post:
       tags: [Auth]
       summary: 로그아웃
@@ -135,7 +135,7 @@ paths:
         '200': { $ref: '#/components/responses/EmptySuccess' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /auth/refresh:
+  /api/v1/auth/refresh:
     post:
       tags: [Auth]
       summary: Access 토큰 재발급
@@ -165,7 +165,7 @@ paths:
                           accessToken: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /auth/verify-student:
+  /api/v1/auth/verify-student:
     post:
       tags: [Auth]
       summary: 학번 인증
@@ -197,7 +197,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /auth/forgot-password:
+  /api/v1/auth/forgot-password:
     post:
       tags: [Auth]
       summary: 비밀번호 재설정 메일 요청
@@ -215,7 +215,7 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/EmptySuccess' }
 
-  /auth/reset-password:
+  /api/v1/auth/reset-password:
     put:
       tags: [Auth]
       summary: 비밀번호 재설정
@@ -238,7 +238,7 @@ paths:
   # ---------------------------------------------------------------------------
   #  8.2 Users — 유현석(프로필). /users/me/wallet* 및 transactions 는 김태형.
   # ---------------------------------------------------------------------------
-  /users/me:
+  /api/v1/users/me:
     get:
       tags: [Users]
       summary: 내 프로필 조회
@@ -290,7 +290,7 @@ paths:
         '200': { $ref: '#/components/responses/EmptySuccess' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /users/me/dashboard:
+  /api/v1/users/me/dashboard:
     get:
       tags: [Users]
       summary: 소비 대시보드 집계 (analytics)
@@ -315,13 +315,13 @@ paths:
   # ---------------------------------------------------------------------------
   #  8.4 Merchants — 유현석. (동적 QR 생성은 김태형 HMAC)
   # ---------------------------------------------------------------------------
-  /merchants:
+  /api/v1/merchants:
     get:
       tags: [Merchants]
       summary: 가맹점 목록
       security: []
       parameters:
-        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
         - { name: category, in: query, schema: { $ref: '#/components/schemas/MerchantCategory' } }
         - { name: q, in: query, schema: { type: string }, description: 가맹점명 부분 일치(case-insensitive) }
@@ -364,7 +364,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
-  /merchants/nearby:
+  /api/v1/merchants/nearby:
     get:
       tags: [Merchants]
       summary: 위치 기반 가맹점 검색 ($geoNear)
@@ -398,7 +398,7 @@ paths:
                           total: { type: integer, example: 20 }
         '400': { $ref: '#/components/responses/ValidationError' }
 
-  /merchants/{id}:
+  /api/v1/merchants/{id}:
     parameters:
       - $ref: '#/components/parameters/MerchantId'
     get:
@@ -446,7 +446,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/MerchantNotFound' }
 
-  /merchants/{id}/qrcode/static:
+  /api/v1/merchants/{id}/qrcode/static:
     parameters:
       - $ref: '#/components/parameters/MerchantId'
     get:
@@ -472,7 +472,7 @@ paths:
 
   # POST /merchants/{id}/qrcode/dynamic → 김태형 (HMAC, qr-token.service.js)
 
-  /merchants/{id}/sales:
+  /api/v1/merchants/{id}/sales:
     parameters:
       - $ref: '#/components/parameters/MerchantId'
     get:
@@ -495,7 +495,7 @@ paths:
                       data: { $ref: '#/components/schemas/MerchantSales' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
-  /merchants/{id}/reviews:
+  /api/v1/merchants/{id}/reviews:
     parameters:
       - $ref: '#/components/parameters/MerchantId'
     get:
@@ -503,7 +503,7 @@ paths:
       summary: 가맹점 리뷰 목록
       security: []
       parameters:
-        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -556,7 +556,7 @@ paths:
   # ---------------------------------------------------------------------------
   #  8.5 Stamps / Coupons — 유현석
   # ---------------------------------------------------------------------------
-  /stamps/me:
+  /api/v1/stamps/me:
     get:
       tags: [Stamps]
       summary: 내 스탬프 카드 전체 조회
@@ -575,7 +575,7 @@ paths:
                         items: { $ref: '#/components/schemas/Stamp' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /stamps/me/{merchantId}:
+  /api/v1/stamps/me/{merchantId}:
     get:
       tags: [Stamps]
       summary: 특정 가맹점 스탬프 카드 조회
@@ -597,16 +597,16 @@ paths:
           description: 해당 가맹점 스탬프 없음
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
-  /coupons/me:
+  /api/v1/coupons/me:
     get:
       tags: [Coupons]
       summary: 내 보유 쿠폰 목록 (issued)
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [available, used, expired] } }
-        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -626,7 +626,7 @@ paths:
                           pagination: { $ref: '#/components/schemas/Pagination' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /coupons/templates:
+  /api/v1/coupons/templates:
     post:
       tags: [Coupons]
       summary: 쿠폰 템플릿 발행 (점주)
@@ -650,7 +650,7 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
-  /coupons/{id}:
+  /api/v1/coupons/{id}:
     get:
       tags: [Coupons]
       summary: 쿠폰 상세
@@ -672,7 +672,7 @@ paths:
   # ---------------------------------------------------------------------------
   #  8.6 Reviews — 유현석 (목록/작성은 /merchants/{id}/reviews 참고)
   # ---------------------------------------------------------------------------
-  /reviews/{id}/like:
+  /api/v1/reviews/{id}/like:
     post:
       tags: [Reviews]
       summary: 리뷰 좋아요
@@ -693,7 +693,7 @@ paths:
                           likeCount: { type: integer }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /reviews/{id}/report:
+  /api/v1/reviews/{id}/report:
     post:
       tags: [Reviews]
       summary: 리뷰 신고
@@ -711,7 +711,7 @@ paths:
         '200': { $ref: '#/components/responses/EmptySuccess' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /reviews/{id}/reply:
+  /api/v1/reviews/{id}/reply:
     put:
       tags: [Reviews]
       summary: 점주 답글 작성/수정
@@ -738,7 +738,7 @@ paths:
                       data: { $ref: '#/components/schemas/Review' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
-  /reviews/{id}:
+  /api/v1/reviews/{id}:
     delete:
       tags: [Reviews]
       summary: 리뷰 삭제 (작성자)
@@ -752,14 +752,14 @@ paths:
   # ---------------------------------------------------------------------------
   #  8.7 Notifications — 유현석
   # ---------------------------------------------------------------------------
-  /notifications:
+  /api/v1/notifications:
     get:
       tags: [Notifications]
       summary: 알림 목록
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: isRead, in: query, schema: { type: boolean } }
-        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -780,7 +780,7 @@ paths:
                           unreadCount: { type: integer, example: 3 }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /notifications/{id}/read:
+  /api/v1/notifications/{id}/read:
     put:
       tags: [Notifications]
       summary: 알림 읽음 처리
@@ -790,7 +790,7 @@ paths:
         '200': { $ref: '#/components/responses/EmptySuccess' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /notifications/read-all:
+  /api/v1/notifications/read-all:
     put:
       tags: [Notifications]
       summary: 모든 알림 읽음 처리
@@ -799,7 +799,7 @@ paths:
         '200': { $ref: '#/components/responses/EmptySuccess' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /notifications/{id}:
+  /api/v1/notifications/{id}:
     delete:
       tags: [Notifications]
       summary: 알림 삭제
@@ -834,14 +834,15 @@ components:
       description: "Authorization: Bearer {accessToken} (Access 15분)"
 
   parameters:
-    Page:
-      name: page
+    Cursor:
+      name: cursor
       in: query
-      schema: { type: integer, minimum: 1, default: 1 }
+      schema: { type: string }
+      description: 이전 응답의 nextCursor를 그대로 전달 (커서 페이지네이션). 첫 페이지는 생략.
     Limit:
       name: limit
       in: query
-      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
     MerchantId:
       name: id
       in: path
@@ -865,7 +866,7 @@ components:
         입력 검증 실패. details.fields 에 문제 입력, details.reason 에 사유를 명시한다.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
           example:
             success: false
             error:
@@ -876,19 +877,19 @@ components:
       description: 인증 실패
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
           example: { success: false, error: { code: UNAUTHORIZED, message: 인증이 필요합니다. } }
     Forbidden:
       description: 권한 없음
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
           example: { success: false, error: { code: FORBIDDEN, message: 접근 권한이 없습니다. } }
     MerchantNotFound:
       description: 가맹점 없음
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
           example: { success: false, error: { code: MERCHANT_NOT_FOUND, message: 가맹점을 찾을 수 없습니다. } }
 
   schemas:
@@ -900,7 +901,8 @@ components:
       properties:
         success: { type: boolean, example: true }
         data: { type: object }
-    ErrorEnvelope:
+    ErrorResponse:
+      # SHARED(canonical) — main transactions.swagger.yaml과 동일 shape. merge 시 1개만 유지.
       type: object
       required: [success, error]
       properties:
@@ -909,19 +911,42 @@ components:
           type: object
           required: [code, message]
           properties:
-            code:
-              type: string
-              description: 표준 에러 코드 (docs/error-codes.md 참조)
-              example: VALIDATION_ERROR
-            message: { type: string, example: 입력값이 올바르지 않습니다. }
-            details: { type: object, nullable: true, description: 개발 환경 전용 }
+            code: { $ref: '#/components/schemas/ErrorCode' }
+            message: { type: string, description: 사용자 표시용 한국어 메시지, example: 입력값이 올바르지 않습니다. }
+            details:
+              nullable: true
+              description: 추가 컨텍스트(개발 환경). 없으면 키 생략. VALIDATION_ERROR는 { fields, reason }.
+              example: { fields: ['lat'], reason: required_number }
+    ErrorCode:
+      # SHARED(canonical) — main errors.js와 1:1. 유현석 도메인 추가코드는 docs/error-codes.md 등록 후 enum 병합(이름은 main 규약 기준).
+      type: string
+      enum:
+        - VALIDATION_ERROR       # 400
+        - UNAUTHORIZED           # 401
+        - FORBIDDEN              # 403
+        - USER_NOT_FOUND         # 404
+        - MERCHANT_NOT_FOUND     # 404
+        - NOT_FOUND              # 404
+        - INSUFFICIENT_BALANCE   # 400
+        - INVALID_QR_TOKEN       # 400
+        - DUPLICATE_TRANSACTION  # 409
+        - CONCURRENCY_ERROR      # 409
+        - COUPON_EXPIRED         # 400
+        - COUPON_ALREADY_USED    # 400
+        - INTERNAL_ERROR         # 500
+      example: VALIDATION_ERROR
     Pagination:
+      # SHARED(canonical) — main transactions.swagger.yaml과 동일 cursor shape. merge 시 1개만 유지.
       type: object
+      required: [limit, hasMore, nextCursor]
       properties:
-        page: { type: integer, example: 1 }
-        limit: { type: integer, example: 20 }
-        total: { type: integer, example: 137 }
+        limit: { type: integer, minimum: 1, maximum: 50, example: 20 }
         hasMore: { type: boolean, example: true }
+        nextCursor:
+          type: string
+          nullable: true
+          description: 다음 페이지 커서(base64, 불투명). hasMore=false면 null. 다음 요청 cursor로 그대로 전달.
+          example: "MjAyNC0wNS0zMVQwOTowMFpfNjY3OA=="
 
     AuthResult:
       type: object
