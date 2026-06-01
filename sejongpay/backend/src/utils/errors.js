@@ -108,6 +108,38 @@ class NotFoundError extends AppError {
   }
 }
 
+// ─── Auth 도메인 에러 (유현석) ───────────────────────────────
+// 코드는 docs/error-codes.md 의 인증 확장 코드와 1:1. ErrorCode enum 병합 대상.
+class InvalidCredentialsError extends AppError {
+  constructor(message = '이메일 또는 비밀번호가 일치하지 않습니다.', details) {
+    super('INVALID_CREDENTIALS', 401, message, details);
+  }
+}
+
+class EmailAlreadyExistsError extends AppError {
+  constructor(message = '이미 사용 중인 이메일입니다.', details) {
+    super('EMAIL_ALREADY_EXISTS', 409, message, details);
+  }
+}
+
+class StudentIdAlreadyExistsError extends AppError {
+  constructor(message = '이미 사용 중인 학번입니다.', details) {
+    super('STUDENT_ID_ALREADY_EXISTS', 409, message, details);
+  }
+}
+
+class InvalidRefreshTokenError extends AppError {
+  constructor(message = '세션이 만료되었습니다. 다시 로그인해 주세요.', details) {
+    super('INVALID_REFRESH_TOKEN', 401, message, details);
+  }
+}
+
+class NotVerifiedError extends AppError {
+  constructor(message = '학번 인증이 필요합니다.', details) {
+    super('NOT_VERIFIED', 403, message, details);
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -123,4 +155,10 @@ module.exports = {
   CouponAlreadyUsedError,
   InternalError,
   NotFoundError,
+  // Auth 도메인 (유현석)
+  InvalidCredentialsError,
+  EmailAlreadyExistsError,
+  StudentIdAlreadyExistsError,
+  InvalidRefreshTokenError,
+  NotVerifiedError,
 };

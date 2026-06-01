@@ -26,6 +26,7 @@ const { generalLimiter } = require('./middlewares/rateLimit');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
 
+const authRouter = require('./routes/auth.routes');
 const transactionRouter = require('./routes/transaction.routes');
 const merchantRouter = require('./routes/merchant.routes');
 
@@ -62,6 +63,7 @@ app.use(generalLimiter);
 // NOTE: auth 미들웨어(유현석)를 각 라우터 파일 내부 또는 여기 router.use() 로 연결한다.
 // 예: app.use('/api/v1/transactions', authMiddleware, transactionRouter);
 // 현재는 컨트롤러/라우터 내부 주석으로 통합 지점을 표시해 두었다.
+app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/transactions', transactionRouter);
 app.use('/api/v1/merchants', merchantRouter);
 
