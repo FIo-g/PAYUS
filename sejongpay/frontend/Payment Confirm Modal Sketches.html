@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PaymentConfirmModal · 4 states</title>
+
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="payment-modal.css" />
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="grid-bg" style="border-bottom:1px solid #EFEFF2;">
+  <div style="max-width:1240px; margin:0 auto; padding:48px 32px 32px;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <div style="width:36px; height:36px; border-radius:10px; background:#8B0029; color:#fff;
+                  display:grid; place-items:center; font-weight:700; font-size:16px;">세</div>
+      <div style="font-size:14px; color:#4A4B53; letter-spacing:0.01em;">SejongPay · PaymentConfirmModal</div>
+      <div style="margin-left:auto; font-family:'JetBrains Mono', monospace; font-size:12px; color:#8B8C95;">시안 v0 · 시안 확정 후 .tsx 변환</div>
+    </div>
+    <h1 style="font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-0.02em; max-width:760px; margin:0;">
+      결제 확인 모달 · <span style="color:#8B0029;">4가지 상태</span>
+    </h1>
+    <p style="margin-top:16px; font-size:15px; color:#4A4B53; max-width:640px; line-height:1.6;">
+      <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:2px 6px; border-radius:4px;">state</code> prop 하나로 4가지 상태를 전환하는 BottomSheet 모달이에요.
+      idle/processing은 동일 레이아웃에서 버튼만 바뀌고, success/failed는 결과 화면으로 완전히 교체됩니다.
+    </p>
+  </div>
+</header>
+
+<main style="max-width:1240px; margin:0 auto; padding:48px 32px 80px;
+             display:grid; grid-template-columns:1fr 1fr; gap:56px 32px; justify-items:center;">
+
+  <!-- ─────────────────────────── STATE 1 : IDLE ─────────────────────────── -->
+  <section>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;">
+          ●●●● 5G <span style="display:inline-block; width:22px; height:11px; border:1px solid #1A1B20; border-radius:3px; position:relative;">
+            <span style="position:absolute; inset:1px; right:6px; background:#1A1B20; border-radius:1px;"></span>
+          </span>
+        </span>
+      </div>
+
+      <!-- faint app underneath -->
+      <div class="bg-app" style="top:44px;">
+        <div class="row short"></div>
+        <div class="block"></div>
+        <div class="row mid"></div>
+        <div class="row"></div>
+      </div>
+
+      <div class="dim" style="top:44px;"></div>
+
+      <!-- sheet -->
+      <div class="sheet">
+        <div class="handle"></div>
+        <div class="eyebrow">결제 확인</div>
+        <div style="font-size:20px; font-weight:700; margin-top:4px;">이 결제를 진행할까요?</div>
+
+        <!-- Merchant -->
+        <div style="margin-top:14px; display:flex; align-items:center; gap:12px;
+                    padding:12px; border-radius:16px; background:#FBF7F0; border:1px solid #F5EDDF;">
+          <div class="sj-stripes" style="width:44px; height:44px; border-radius:10px;
+                                          display:grid; place-items:center;">
+            <span style="font-family:'JetBrains Mono', monospace; font-size:9px; color:#8B0029;">LOGO</span>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color:#8B8C95;">청파동 · 카페</div>
+            <div style="font-weight:600; font-size:14px;">매머드커피 청파점</div>
+          </div>
+        </div>
+
+        <!-- Amount -->
+        <div style="text-align:center; padding:20px 0 10px;">
+          <div style="font-size:11px; color:#8B8C95; font-weight:500;">결제 금액</div>
+          <div class="money" style="margin-top:6px;">8,500<span class="won">원</span></div>
+          <div style="margin-top:10px;">
+            <span class="chip-cashback">+ 170원 적립 예정 (2%)</span>
+          </div>
+        </div>
+
+        <!-- Coupon -->
+        <div class="coupon-row" style="margin-top:6px;">
+          <span class="check">✓</span>
+          <div style="flex:1;">
+            <div style="font-size:13px; font-weight:600;">아메리카노 500원 할인 쿠폰</div>
+            <div style="font-size:11px; color:#8B8C95; margin-top:1px;">오늘까지 · 사용 가능 1장</div>
+          </div>
+          <span style="font-size:13px; font-weight:700; color:#A91D3A;">- 500원</span>
+        </div>
+
+        <!-- Balance after -->
+        <div class="row-line" style="margin-top:14px; padding-top:14px; border-top:1px solid #EFEFF2;">
+          <span style="color:#4A4B53;">결제 후 잔액</span>
+          <span style="font-weight:600; color:#1A1B20;" class="tabular">₩41,500</span>
+        </div>
+
+        <!-- CTAs -->
+        <button class="btn btn-primary btn-lg" style="width:100%; margin-top:14px;">8,000원 결제하기</button>
+        <button class="btn btn-ghost btn-md" style="width:100%; margin-top:6px;">취소</button>
+      </div>
+
+      <div class="home-indicator"></div>
+    </div>
+
+    <div class="state-label" style="margin-top:20px; justify-content:center;">
+      <span class="num">01</span>
+      <span class="key">state="idle"</span>
+      <span class="ko">결제 대기</span>
+    </div>
+    <p style="text-align:center; font-size:13px; color:#8B8C95; margin-top:6px; max-width:340px;">
+      쿠폰은 자동 선택 상태로 표시. 결제 금액은 쿠폰 차감 후 최종액으로 강조.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── STATE 2 : PROCESSING ─────────────────────────── -->
+  <section>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;">
+          ●●●● 5G <span style="display:inline-block; width:22px; height:11px; border:1px solid #1A1B20; border-radius:3px; position:relative;">
+            <span style="position:absolute; inset:1px; right:6px; background:#1A1B20; border-radius:1px;"></span>
+          </span>
+        </span>
+      </div>
+
+      <div class="bg-app" style="top:44px;">
+        <div class="row short"></div>
+        <div class="block"></div>
+        <div class="row mid"></div>
+        <div class="row"></div>
+      </div>
+
+      <div class="dim" style="top:44px;"></div>
+
+      <div class="sheet">
+        <!-- handle disabled-tinted -->
+        <div class="handle" style="opacity:0.4;"></div>
+        <div class="eyebrow" style="color:#A91D3A;">결제 진행 중</div>
+        <div style="font-size:20px; font-weight:700; margin-top:4px;">잠시만 기다려 주세요</div>
+
+        <div style="margin-top:14px; display:flex; align-items:center; gap:12px;
+                    padding:12px; border-radius:16px; background:#FBF7F0; border:1px solid #F5EDDF; opacity:0.6;">
+          <div class="sj-stripes" style="width:44px; height:44px; border-radius:10px;
+                                          display:grid; place-items:center;">
+            <span style="font-family:'JetBrains Mono', monospace; font-size:9px; color:#8B0029;">LOGO</span>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color:#8B8C95;">청파동 · 카페</div>
+            <div style="font-weight:600; font-size:14px;">매머드커피 청파점</div>
+          </div>
+        </div>
+
+        <div style="text-align:center; padding:20px 0 10px;">
+          <div style="font-size:11px; color:#8B8C95; font-weight:500;">결제 금액</div>
+          <div class="money" style="margin-top:6px; color:#4A4B53;">8,000<span class="won">원</span></div>
+          <div style="margin-top:10px;">
+            <span class="chip-cashback" style="opacity:0.6;">+ 170원 적립 예정 (2%)</span>
+          </div>
+        </div>
+
+        <!-- progress strip -->
+        <div style="margin-top:14px; height:4px; border-radius:999px; background:#F8E1E6; overflow:hidden;">
+          <div style="height:100%; width:55%; background:linear-gradient(90deg, #A91D3A, #C84E68);
+                      border-radius:999px; animation: pulseBar 1.4s ease-in-out infinite;"></div>
+        </div>
+        <style>
+          @keyframes pulseBar {
+            0%   { transform: translateX(-55%); }
+            100% { transform: translateX(100%); }
+          }
+        </style>
+        <div style="text-align:center; font-size:12px; color:#8B8C95; margin-top:8px;">
+          은행 승인 요청 중...
+        </div>
+
+        <button class="btn btn-primary btn-lg" style="width:100%; margin-top:18px;" disabled>
+          <span class="spinner" aria-hidden="true"></span>
+          결제 중...
+        </button>
+        <button class="btn btn-ghost btn-md" style="width:100%; margin-top:6px; color:#D1D2D8;" disabled>
+          취소할 수 없어요
+        </button>
+      </div>
+
+      <div class="home-indicator"></div>
+    </div>
+
+    <div class="state-label" style="margin-top:20px; justify-content:center;">
+      <span class="num">02</span>
+      <span class="key">state="processing"</span>
+      <span class="ko">결제 중</span>
+    </div>
+    <p style="text-align:center; font-size:13px; color:#8B8C95; margin-top:6px; max-width:340px;">
+      뒤로가기 차단. CTA 스피너 + 진행 막대 + 단계 텍스트로 “지금 뭔가 진짜 진행 중”임을 명확히.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── STATE 3 : SUCCESS ─────────────────────────── -->
+  <section>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;">
+          ●●●● 5G <span style="display:inline-block; width:22px; height:11px; border:1px solid #1A1B20; border-radius:3px; position:relative;">
+            <span style="position:absolute; inset:1px; right:6px; background:#1A1B20; border-radius:1px;"></span>
+          </span>
+        </span>
+      </div>
+
+      <div class="bg-app" style="top:44px;">
+        <div class="row short"></div>
+        <div class="block"></div>
+        <div class="row mid"></div>
+        <div class="row"></div>
+      </div>
+
+      <div class="dim" style="top:44px;"></div>
+
+      <div class="sheet">
+        <div class="handle"></div>
+
+        <!-- Big check -->
+        <div style="display:grid; place-items:center; padding:18px 0 8px;">
+          <div style="position:relative;">
+            <div class="anim-pulse" style="position:absolute; inset:0; width:88px; height:88px; border-radius:50%;"></div>
+            <div class="anim-pop" style="width:88px; height:88px; border-radius:50%; background:#10B981;
+                                          display:grid; place-items:center; position:relative;">
+              <svg viewBox="0 0 32 32" width="44" height="44" fill="none" stroke="white"
+                   stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 16.5 L13.5 23 L25 10" class="anim-check" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="anim-rise" style="text-align:center;">
+          <div style="font-size:11px; font-family:'JetBrains Mono', monospace; color:#8B8C95; letter-spacing:0.08em; text-transform:uppercase;">결제 완료</div>
+          <div style="font-size:24px; font-weight:700; margin-top:4px;">잘 먹고 가세요 🍰</div>
+        </div>
+
+        <!-- transaction details -->
+        <div class="anim-rise" style="margin-top:16px; border:1px solid #EFEFF2; border-radius:14px;">
+          <div class="row-line" style="padding:12px 16px;">
+            <span style="color:#8B8C95;">결제 금액</span>
+            <span class="tabular" style="font-weight:700;">₩8,000</span>
+          </div>
+          <div class="row-line" style="padding:12px 16px;">
+            <span style="color:#8B8C95;">캐시백</span>
+            <span class="tabular" style="font-weight:700; color:#047857;">+ ₩170</span>
+          </div>
+          <div class="row-line" style="padding:12px 16px;">
+            <span style="color:#8B8C95;">거래번호</span>
+            <span class="tabular" style="font-family:'JetBrains Mono', monospace; font-size:12px;">SJ-2026-0429-8842</span>
+          </div>
+        </div>
+
+        <!-- CTAs -->
+        <div class="anim-rise delay-2" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn btn-secondary btn-lg">영수증 보기</button>
+          <button class="btn btn-primary btn-lg">확인</button>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+    </div>
+
+    <div class="state-label" style="margin-top:20px; justify-content:center;">
+      <span class="num">03</span>
+      <span class="key" style="background:#D1FAE5; color:#047857;">state="success"</span>
+      <span class="ko">결제 완료</span>
+    </div>
+    <p style="text-align:center; font-size:13px; color:#8B8C95; margin-top:6px; max-width:340px;">
+      체크 ⓘ scale-pop + ring-pulse + check-draw 3중 시퀀스. 본문은 coin-rise로 한 박자 늦게 등장.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── STATE 4 : FAILED ─────────────────────────── -->
+  <section>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px;">
+          ●●●● 5G <span style="display:inline-block; width:22px; height:11px; border:1px solid #1A1B20; border-radius:3px; position:relative;">
+            <span style="position:absolute; inset:1px; right:6px; background:#1A1B20; border-radius:1px;"></span>
+          </span>
+        </span>
+      </div>
+
+      <div class="bg-app" style="top:44px;">
+        <div class="row short"></div>
+        <div class="block"></div>
+        <div class="row mid"></div>
+        <div class="row"></div>
+      </div>
+
+      <div class="dim" style="top:44px;"></div>
+
+      <div class="sheet">
+        <div class="handle"></div>
+
+        <!-- Big X -->
+        <div style="display:grid; place-items:center; padding:18px 0 8px;">
+          <div class="anim-pop anim-shake" style="width:88px; height:88px; border-radius:50%; background:#FEF2F2;
+                                                    display:grid; place-items:center; border:2px solid #EF4444;">
+            <svg viewBox="0 0 32 32" width="40" height="40" fill="none" stroke="#EF4444"
+                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 10 L22 22" class="anim-check" />
+              <path d="M22 10 L10 22" class="anim-check" style="animation-delay:340ms;" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="anim-rise" style="text-align:center;">
+          <div style="font-size:11px; font-family:'JetBrains Mono', monospace; color:#8B8C95; letter-spacing:0.08em; text-transform:uppercase;">결제 실패</div>
+          <div style="font-size:22px; font-weight:700; margin-top:4px;">잔액이 부족해요</div>
+          <p style="font-size:14px; color:#4A4B53; margin-top:8px; line-height:1.55;">
+            우리은행 입출금 계좌 잔액이 결제 금액보다 적어요.<br/>
+            5,200원만 충전하면 바로 결제할 수 있어요.
+          </p>
+        </div>
+
+        <div class="anim-rise" style="margin-top:14px; padding:12px 16px; border:1px solid #EFEFF2; border-radius:14px; background:#F7F7F8;">
+          <div class="row-line" style="padding:6px 0;">
+            <span style="color:#8B8C95;">현재 잔액</span>
+            <span class="tabular" style="font-weight:600;">₩2,800</span>
+          </div>
+          <div class="row-line" style="padding:6px 0;">
+            <span style="color:#8B8C95;">결제 금액</span>
+            <span class="tabular" style="font-weight:600;">₩8,000</span>
+          </div>
+          <div class="row-line" style="padding:6px 0; border-top:1px solid #EFEFF2; margin-top:4px; padding-top:8px;">
+            <span style="color:#4A4B53; font-weight:600;">부족 금액</span>
+            <span class="tabular" style="font-weight:700; color:#EF4444;">- ₩5,200</span>
+          </div>
+        </div>
+
+        <div style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#8B8C95; margin-top:10px; text-align:center;">
+          ERR_INSUFFICIENT_FUNDS · 0x4221
+        </div>
+
+        <div class="anim-rise delay-2" style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn btn-secondary btn-lg">닫기</button>
+          <button class="btn btn-primary btn-lg">충전하기</button>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+    </div>
+
+    <div class="state-label" style="margin-top:20px; justify-content:center;">
+      <span class="num">04</span>
+      <span class="key" style="background:#FEF2F2; color:#B91C1C;">state="failed"</span>
+      <span class="ko">결제 실패</span>
+    </div>
+    <p style="text-align:center; font-size:13px; color:#8B8C95; margin-top:6px; max-width:340px;">
+      에러 X 아이콘 등장 + shake. “왜” 실패했는지 + “어떻게” 해결하는지를 한 화면에. 충전 CTA가 가장 굵게.
+    </p>
+  </section>
+</main>
+
+<!-- DESIGN NOTES -->
+<section style="max-width:1240px; margin:0 auto 80px; padding:0 32px;">
+  <h2 style="font-size:24px; font-weight:700; letter-spacing:-0.01em; margin-bottom:20px;">설계 노트</h2>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+    <div style="background:#fff; border:1px solid #EFEFF2; border-radius:20px; padding:20px;">
+      <div class="eyebrow">상태 전이</div>
+      <div style="margin-top:8px; font-family:'JetBrains Mono', monospace; font-size:12px; color:#4A4B53; line-height:1.7;">
+        idle ──[탭 결제하기]──▶ processing
+        <br/>processing ──[성공]──▶ success
+        <br/>processing ──[실패]──▶ failed
+        <br/>success ──[확인]──▶ <span style="color:#8B8C95;">모달 닫힘</span>
+        <br/>failed ──[충전하기]──▶ <span style="color:#8B8C95;">충전 화면</span>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #EFEFF2; border-radius:20px; padding:20px;">
+      <div class="eyebrow">React Props (TSX 변환 시)</div>
+      <pre style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#1A1B20;
+                  margin-top:8px; background:#F7F7F8; padding:12px; border-radius:10px;
+                  line-height:1.55; overflow-x:auto;">type Props = {
+  state: 'idle' | 'processing' | 'success' | 'failed';
+  merchant: { name; category; thumbnail; };
+  amount: number;
+  cashbackAmount: number;
+  cashbackRate: number;
+  balanceAfter: number;
+  coupon?: { name; discountAmount; };
+  transactionId?: string;  // success
+  errorCode?: string;      // failed
+  errorMessage?: string;   // failed
+  shortfall?: number;      // failed (잔액 부족 시)
+  onConfirm: () => void;
+  onCancel: () => void;
+  onViewReceipt?: () => void;
+  onRecharge?: () => void;
+};</pre>
+    </div>
+
+    <div style="background:#fff; border:1px solid #EFEFF2; border-radius:20px; padding:20px;">
+      <div class="eyebrow">Framer Motion 매핑</div>
+      <div style="margin-top:8px; font-size:13px; color:#4A4B53; line-height:1.65;">
+        · 체크/X 아이콘: <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:1px 5px; border-radius:4px;">motion.div</code> + <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:1px 5px; border-radius:4px;">spring(0.34, 1.56, 0.64, 1)</code>
+        <br/>· check path: <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:1px 5px; border-radius:4px;">motion.path</code> + pathLength 0 → 1, 320ms 지연
+        <br/>· 본문 텍스트/카드: <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:1px 5px; border-radius:4px;">staggerChildren: 0.08</code>로 순차 등장
+        <br/>· failed의 흔들림: <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:1px 5px; border-radius:4px;">animate: {'{ x: [-6, 6, -4, 4, 0] }'}</code>
+        <br/>· <code style="font-family:'JetBrains Mono', monospace; background:#F7F7F8; padding:1px 5px; border-radius:4px;">prefers-reduced-motion</code> 시 spring → tween / shake 제거
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #EFEFF2; border-radius:20px; padding:20px;">
+      <div class="eyebrow">결정 사항 · 확인 부탁</div>
+      <ul style="margin-top:8px; padding-left:18px; font-size:13px; color:#4A4B53; line-height:1.65;">
+        <li>idle 화면에서 <b>쿠폰 자동 선택</b> 정책 — 기본 ON, 사용자가 끌 수 있게 한다는 가정.</li>
+        <li>success는 거래번호 + 금액 + 캐시백 3줄만 노출. 가맹점명은 의도적으로 생략 (영수증에서 확인).</li>
+        <li>failed의 “충전하기”가 Primary, “닫기”가 Secondary. 보통의 cancel-on-right 패턴 깨는 의도적 결정 — 사용자가 충전으로 빠르게 회복하도록.</li>
+        <li>processing은 <b>최소 600ms 표시</b> 권장 (너무 빠르면 “정말 처리됐나?” 의심). 실 결제 응답이 빨라도 의도적 딜레이.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

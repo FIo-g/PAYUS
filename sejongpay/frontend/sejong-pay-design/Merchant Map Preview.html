@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Merchant Map · Preview</title>
+
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans:['Pretendard','ui-sans-serif','system-ui','sans-serif'], mono:['"JetBrains Mono"','ui-monospace','monospace'] },
+      keyframes: {
+        'sheet-in': { '0%':{transform:'translateY(100%)'},'100%':{transform:'translateY(0)'} },
+        'fade-in':  { '0%':{opacity:'0'},'100%':{opacity:'1'} },
+      },
+      animation: {
+        'sheet-in':'sheet-in 320ms cubic-bezier(0.22,1,0.36,1) both',
+        'fade-in': 'fade-in 200ms cubic-bezier(0.22,1,0.36,1) both',
+      },
+    }}
+  }
+</script>
+
+<style>
+  html, body { font-family:'Pretendard', ui-sans-serif, system-ui, sans-serif; }
+  body { background:#FBF7F0; color:#1A1B20; -webkit-font-smoothing:antialiased; min-height:100vh; }
+  .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(26,27,32,0.06) 1px, transparent 0); background-size: 16px 16px; }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .no-scrollbar { scrollbar-width:none; }
+
+  pre.code { background:#1A1B20; color:#EFEFF2; border-radius:14px; padding:16px 18px;
+             font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.55;
+             overflow-x:auto; }
+  pre.code .c-key { color:#E08294; }
+  pre.code .c-str { color:#DDC79A; }
+  pre.code .c-cmt { color:#8B8C95; font-style:italic; }
+</style>
+</head>
+<body>
+
+<header class="grid-bg border-b border-[#EFEFF2]">
+  <div class="max-w-[1240px] mx-auto px-8 py-10">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-9 h-9 rounded-xl bg-[#8B0029] text-white grid place-items-center font-bold text-lg">세</div>
+      <div class="text-sm text-[#4A4B53]">SejongPay · Merchant Map</div>
+      <div class="ml-auto text-xs font-mono text-[#8B8C95]">/map</div>
+    </div>
+    <h1 class="text-[36px] leading-[1.1] font-bold tracking-[-0.02em]">
+      가맹점 지도 · <span class="text-[#8B0029]">미리보기</span>
+    </h1>
+    <p class="mt-3 text-[#4A4B53] max-w-[680px] text-[15px] leading-relaxed">
+      카카오 지도 API 키 없이 보기 위해 가짜 캔버스로 그렸어요. 마커 클릭 → BottomSheet,
+      검색바·카테고리 칩·결과 카운터·로딩 인디케이터 모두 실제 컴포넌트와 동일하게 동작합니다.
+    </p>
+  </div>
+</header>
+
+<main class="max-w-[1240px] mx-auto px-8 py-12">
+  <div class="grid grid-cols-[420px_1fr] gap-10 items-start">
+
+    <!-- Phone -->
+    <div class="flex justify-center pt-4">
+      <div id="phone-mount"></div>
+    </div>
+
+    <!-- Notes -->
+    <section class="space-y-6">
+      <div class="bg-white border border-[#EFEFF2] rounded-3xl p-6">
+        <div class="text-[11px] font-mono uppercase tracking-wider text-[#8B8C95] mb-1">파일 구조</div>
+        <pre class="code"><span class="c-cmt">// MSW (백엔드 작업 전 임시)</span>
+<span class="c-key">src/mocks/data/merchants.ts</span>     <span class="c-cmt">// 20곳 시드</span>
+<span class="c-key">src/mocks/handlers/merchants.ts</span>  <span class="c-cmt">// GET /api/v1/merchants/nearby</span>
+
+<span class="c-cmt">// 페이지</span>
+<span class="c-key">src/pages/Map.tsx</span>               <span class="c-cmt">// Kakao Map + TanStack Query</span>
+<span class="c-key">src/components/map/types.ts</span>     <span class="c-cmt">// Merchant, CATEGORY_META</span>
+<span class="c-key">src/components/map/CategoryFilter.tsx</span>
+<span class="c-key">src/components/map/MerchantSheet.tsx</span></pre>
+      </div>
+
+      <div class="bg-white border border-[#EFEFF2] rounded-3xl p-6">
+        <div class="text-[11px] font-mono uppercase tracking-wider text-[#8B8C95] mb-1">API 응답 (MSW)</div>
+        <pre class="code"><span class="c-cmt">GET /api/v1/merchants/nearby?lat=36.6004&lng=127.2858&radius=1000</span>
+{
+  <span class="c-key">success</span>: <span class="c-str">true</span>,
+  <span class="c-key">data</span>: {
+    <span class="c-key">merchants</span>: [{
+      <span class="c-key">_id</span>: <span class="c-str">"mch_01"</span>,
+      <span class="c-key">name</span>: <span class="c-str">"매머드커피 조치원역점"</span>,
+      <span class="c-key">category</span>: <span class="c-str">"cafe"</span>,
+      <span class="c-key">location</span>: { type: <span class="c-str">"Point"</span>, coordinates: [127.2961, 36.6014] },
+      <span class="c-key">distance</span>: 156,   <span class="c-cmt">// 핸들러에서 동적 계산</span>
+      <span class="c-key">rating</span>: 4.8, <span class="c-key">reviewCount</span>: 284,
+      <span class="c-key">cashbackRate</span>: 5,
+      ...
+    }, ...],
+    <span class="c-key">total</span>: 12
+  }
+}</pre>
+      </div>
+
+      <div class="bg-white border border-[#EFEFF2] rounded-3xl p-6">
+        <div class="text-[11px] font-mono uppercase tracking-wider text-[#8B8C95] mb-2">설계 노트</div>
+        <ul class="space-y-1.5 text-[14px] text-[#4A4B53] list-disc pl-5 marker:text-[#A91D3A]">
+          <li><b>Query 키</b>는 <code class="font-mono bg-[#F7F7F8] px-1.5 py-0.5 rounded">['merchants','nearby',args]</code>로 args를 객체째 두면 TanStack Query가 자동 캐시 무효화.</li>
+          <li><b>두 단계 debounce</b>: 검색 입력 → searchQuery(500ms), 지도 idle/필터 → queryArgs(500ms). 둘이 합쳐져도 한 요청만 나가도록.</li>
+          <li><b>radius</b>는 지도 가시영역의 NE 모서리까지 거리(haversine). 최대 5km로 캡.</li>
+          <li><b><code class="font-mono bg-[#F7F7F8] px-1.5 py-0.5 rounded">keepPreviousData</code></b>로 이동 중에도 이전 마커 유지 → 깜빡임 방지.</li>
+          <li><b>5% 이상 캐시백</b> 마커에는 그린 점 배지. 한눈에 “여기 적립률 높네”를 노출.</li>
+          <li>마커 색 = 카테고리 색 = 칩 도트 색. 시각적 학습을 강화.</li>
+          <li>aria-label에 한국어로 가맹점 + 카테고리 + 캐시백률 모두 포함 → 스크린리더로도 의미 전달.</li>
+        </ul>
+      </div>
+
+      <div class="bg-[#FCF2F4] border border-[#F8E1E6] rounded-3xl p-6">
+        <div class="text-[11px] font-mono uppercase tracking-wider text-[#8B0029] mb-1.5">백엔드(유현석)에게 확정 부탁</div>
+        <ul class="space-y-1.5 text-[14px] text-[#4A4B53] list-disc pl-5 marker:text-[#8B0029]">
+          <li>응답 키 <code class="font-mono bg-white px-1.5 py-0.5 rounded">success</code> + <code class="font-mono bg-white px-1.5 py-0.5 rounded">data.merchants[]</code> 구조 — OK?</li>
+          <li><code class="font-mono bg-white px-1.5 py-0.5 rounded">distance</code>를 백엔드에서 계산해 내려줄 것인지, 프론트에서 할 것인지.</li>
+          <li><code class="font-mono bg-white px-1.5 py-0.5 rounded">category</code> enum 5종 (cafe/restaurant/convenience/study/other)으로 통일 — OK?</li>
+          <li>페이지네이션 필요? (현재는 1000m 반경 내 전체. 도시 단위로 확대 시 cursor 필요)</li>
+          <li>썸네일 — CDN URL? S3? 캐싱 정책?</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components/map-preview.jsx"></script>
+
+</body>
+</html>
