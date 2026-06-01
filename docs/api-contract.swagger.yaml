@@ -1,0 +1,1160 @@
+openapi: 3.0.3
+
+# =============================================================================
+#  세종페이(SejongPay) API Contract — 단일 진실원천(Single Source of Truth)
+# -----------------------------------------------------------------------------
+#  ⚠️ 이 파일은 김태형 + 유현석 공동 소유입니다 (문서 7.3 / 머지 규칙).
+#     - 유현석 영역: Auth / Users(프로필) / Merchants / Stamps / Coupons /
+#                    Reviews / Notifications
+#     - 김태형 영역: Transactions / Wallet / 동적 QR(HMAC)  → 아래 placeholder
+#     API 변경은 반드시 별도 PR로 합의 후 머지할 것.
+#  모든 응답은 표준 포맷 { success, data?, error? } 을 따른다 (문서 7.3).
+# =============================================================================
+
+info:
+  title: SejongPay API
+  version: 1.0.0
+  description: |
+    캠퍼스 전용 간편결제 플랫폼 세종페이의 REST API 명세.
+    학번 인증 학생이 지갑 충전 → 조치원읍 가맹점 QR 결제 → 캐시백·스탬프·쿠폰 적립.
+
+    공통 규칙:
+    - 모든 금액은 정수(원 단위).
+    - 모든 응답은 { success, data?, error? } 형식.
+    - 페이지네이션: ?page=1&limit=20&sort=createdAt&order=desc
+    - 인증: Authorization: Bearer {accessToken}
+  contact:
+    name: PAYUS 팀 — 고려대학교 세종캠퍼스 KUS R&SD 2026
+
+servers:
+  - url: http://localhost:4000/api/v1
+    description: 로컬 개발
+  - url: https://sejongpay-api.up.railway.app/api/v1
+    description: 운영(Railway)
+
+tags:
+  - name: Auth
+    description: 인증 — 유현석
+  - name: Users
+    description: 사용자 프로필 — 유현석 (지갑 관련은 Wallet 태그, 김태형)
+  - name: Merchants
+    description: 가맹점 — 유현석
+  - name: Stamps
+    description: 스탬프 — 유현석
+  - name: Coupons
+    description: 쿠폰 — 유현석
+  - name: Reviews
+    description: 리뷰 — 유현석
+  - name: Notifications
+    description: 알림 — 유현석
+  - name: Transactions
+    description: 거래/결제 — 김태형 (placeholder)
+  - name: Wallet
+    description: 지갑 — 김태형 (placeholder)
+
+# =============================================================================
+#  PATHS
+# =============================================================================
+paths:
+
+  # ---------------------------------------------------------------------------
+  #  8.1 Auth — 유현석
+  # ---------------------------------------------------------------------------
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: 회원가입 (학번/이메일)
+      description: 이메일은 unique. 학생은 studentId 필수. 비밀번호는 서버에서 bcrypt(saltRounds=12) 해싱.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name, role]
+              properties:
+                email: { type: string, format: email, example: hong@korea.ac.kr }
+                password: { type: string, format: password, minLength: 8, example: TestPass123! }
+                name: { type: string, example: 홍길동 }
+                phone: { type: string, example: 010-1234-5678 }
+                role: { type: string, enum: [student, merchant], example: student }
+                studentId: { type: string, description: role=student 시 필수, example: "2025270661" }
+      responses:
+        '201':
+          description: 가입 성공 (인증 토큰 함께 발급)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409':
+          description: 이메일/학번 중복
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 로그인
+      description: 성공 시 Access(15분) + Refresh(7일) 발급. refreshTokenHash 를 DB에 저장.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AuthResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃
+      description: 서버에서 refreshTokenHash 를 제거하여 Refresh 토큰을 무효화한다.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Access 토큰 재발급
+      description: 유효한 Refresh 토큰으로 새 Access 토큰을 발급. DB의 refreshTokenHash 와 대조.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: 재발급 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/verify-student:
+    post:
+      tags: [Auth]
+      summary: 학번 인증
+      description: 학번 인증 완료 시 isVerified=true 로 전환. 결제/충전 등은 인증 사용자만 가능.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId: { type: string, example: "2025270661" }
+                verificationCode: { type: string, description: 인증 수단에 따른 코드 }
+      responses:
+        '200':
+          description: 인증 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          isVerified: { type: boolean, example: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: 비밀번호 재설정 메일 요청
+      description: 가입된 이메일로 재설정 토큰을 발송. 존재 여부를 노출하지 않기 위해 항상 200.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+
+  /auth/reset-password:
+    put:
+      tags: [Auth]
+      summary: 비밀번호 재설정
+      description: 이메일로 받은 reset 토큰으로 새 비밀번호 설정.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resetToken, newPassword]
+              properties:
+                resetToken: { type: string }
+                newPassword: { type: string, format: password, minLength: 8 }
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  # ---------------------------------------------------------------------------
+  #  8.2 Users — 유현석(프로필). /users/me/wallet* 및 transactions 는 김태형.
+  # ---------------------------------------------------------------------------
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 내 프로필 조회
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Users]
+      summary: 내 프로필 수정
+      description: 이름/전화/프로필 이미지 등 수정. 이메일·역할·잔액은 수정 불가.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                profileImage: { type: string }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [Users]
+      summary: 회원 탈퇴 (soft delete)
+      description: isActive=false 처리. 거래 원장은 보존.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me/dashboard:
+    get:
+      tags: [Users]
+      summary: 소비 대시보드 집계 (analytics)
+      description: 월별/카테고리별 소비·캐시백 통계. analytics.service.js 담당.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: month, in: query, schema: { type: string, example: "2026-05" }, description: 미지정 시 당월 }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/DashboardSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # /users/me/wallet, /users/me/wallet/charge, /users/me/transactions → 김태형(Wallet/Transactions)
+
+  # ---------------------------------------------------------------------------
+  #  8.4 Merchants — 유현석. (동적 QR 생성은 김태형 HMAC)
+  # ---------------------------------------------------------------------------
+  /merchants:
+    get:
+      tags: [Merchants]
+      summary: 가맹점 목록
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - { name: category, in: query, schema: { $ref: '#/components/schemas/MerchantCategory' } }
+        - { name: q, in: query, schema: { type: string }, description: 가맹점명 부분 일치(case-insensitive) }
+      responses:
+        '200':
+          description: 성공 (페이지네이션)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/MerchantSummary' }
+                          pagination: { $ref: '#/components/schemas/Pagination' }
+    post:
+      tags: [Merchants]
+      summary: 가맹점 등록
+      description: 운영자 승인용. 권한 admin 필요.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantInput' }
+      responses:
+        '201':
+          description: 등록 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Merchant' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /merchants/nearby:
+    get:
+      tags: [Merchants]
+      summary: 위치 기반 가맹점 검색 ($geoNear)
+      description: |
+        Merchants.location 2dsphere 인덱스 활용. 거리 순 정렬, distance(미터) 포함.
+        isActive=true && isVerified=true 만 반환.
+      security: []
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 }, example: 36.6004 }
+        - { name: lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 }, example: 127.2858 }
+        - { name: radius, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 }, description: 미터 }
+        - { name: category, in: query, schema: { $ref: '#/components/schemas/MerchantCategory' } }
+        - { name: q, in: query, schema: { type: string }, description: 가맹점명 부분 일치(case-insensitive) }
+      responses:
+        '200':
+          description: |
+            성공. 반경 내 가맹점을 distance 오름차순으로 **전체 반환**(페이지네이션 없음, MVP).
+            확장 시 cursor 방식 전환 예정.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          merchants:
+                            type: array
+                            items: { $ref: '#/components/schemas/MerchantNearby' }
+                          total: { type: integer, example: 20 }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /merchants/{id}:
+    parameters:
+      - $ref: '#/components/parameters/MerchantId'
+    get:
+      tags: [Merchants]
+      summary: 가맹점 상세
+      security: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Merchant' }
+        '404': { $ref: '#/components/responses/MerchantNotFound' }
+    put:
+      tags: [Merchants]
+      summary: 가맹점 정보 수정 (점주)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantInput' }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Merchant' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/MerchantNotFound' }
+    delete:
+      tags: [Merchants]
+      summary: 가맹점 삭제 (admin, soft delete)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/MerchantNotFound' }
+
+  /merchants/{id}/qrcode/static:
+    parameters:
+      - $ref: '#/components/parameters/MerchantId'
+    get:
+      tags: [Merchants]
+      summary: 정적 QR 코드 조회 (점주)
+      description: 금액 미지정 고정 QR. SP-STATIC-{merchantId}.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          staticQrCode: { type: string, example: SP-STATIC-665f1a2b3c4d5e6f7a8b9c0d }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/MerchantNotFound' }
+
+  # POST /merchants/{id}/qrcode/dynamic → 김태형 (HMAC, qr-token.service.js)
+
+  /merchants/{id}/sales:
+    parameters:
+      - $ref: '#/components/parameters/MerchantId'
+    get:
+      tags: [Merchants]
+      summary: 가맹점 매출 통계 (점주)
+      description: 시간대별/카테고리별 매출 분석. analytics.service.js.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/MerchantSales' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /merchants/{id}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/MerchantId'
+    get:
+      tags: [Reviews]
+      summary: 가맹점 리뷰 목록
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 성공 (isVisible=true 만)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/Review' }
+                          pagination: { $ref: '#/components/schemas/Pagination' }
+    post:
+      tags: [Reviews]
+      summary: 리뷰 작성
+      description: |
+        결제 후에만 작성 가능. transactionId 필수, 거래당 1개(unique).
+        저장 시 post-save 훅으로 Merchants.rating/reviewCount 자동 재계산.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transactionId, rating]
+              properties:
+                transactionId: { type: string }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                content: { type: string, maxLength: 500 }
+                images: { type: array, items: { type: string }, maxItems: 3 }
+      responses:
+        '201':
+          description: 작성 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------------------
+  #  8.5 Stamps / Coupons — 유현석
+  # ---------------------------------------------------------------------------
+  /stamps/me:
+    get:
+      tags: [Stamps]
+      summary: 내 스탬프 카드 전체 조회
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Stamp' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /stamps/me/{merchantId}:
+    get:
+      tags: [Stamps]
+      summary: 특정 가맹점 스탬프 카드 조회
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: merchantId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Stamp' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: 해당 가맹점 스탬프 없음
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /coupons/me:
+    get:
+      tags: [Coupons]
+      summary: 내 보유 쿠폰 목록 (issued)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [available, used, expired] } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/Coupon' }
+                          pagination: { $ref: '#/components/schemas/Pagination' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /coupons/templates:
+    post:
+      tags: [Coupons]
+      summary: 쿠폰 템플릿 발행 (점주)
+      description: type=template 쿠폰 생성. 이후 issueLimit 범위 내에서 사용자에게 발급.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CouponTemplateInput' }
+      responses:
+        '201':
+          description: 발행 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Coupon' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /coupons/{id}:
+    get:
+      tags: [Coupons]
+      summary: 쿠폰 상세
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Coupon' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------------------
+  #  8.6 Reviews — 유현석 (목록/작성은 /merchants/{id}/reviews 참고)
+  # ---------------------------------------------------------------------------
+  /reviews/{id}/like:
+    post:
+      tags: [Reviews]
+      summary: 리뷰 좋아요
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          likeCount: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reviews/{id}/report:
+    post:
+      tags: [Reviews]
+      summary: 리뷰 신고
+      description: reportCount 증가. 임계치 초과 시 isVisible=false 처리.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reviews/{id}/reply:
+    put:
+      tags: [Reviews]
+      summary: 점주 답글 작성/수정
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Review' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reviews/{id}:
+    delete:
+      tags: [Reviews]
+      summary: 리뷰 삭제 (작성자)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------------------
+  #  8.7 Notifications — 유현석
+  # ---------------------------------------------------------------------------
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: 알림 목록
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: isRead, in: query, schema: { type: boolean } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/Notification' }
+                          pagination: { $ref: '#/components/schemas/Pagination' }
+                          unreadCount: { type: integer, example: 3 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: 알림 읽음 처리
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/read-all:
+    put:
+      tags: [Notifications]
+      summary: 모든 알림 읽음 처리
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: 알림 삭제
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { $ref: '#/components/responses/EmptySuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------------------
+  #  8.3 Transactions / Wallet — 김태형 (placeholder, 김태형 PR에서 채움)
+  # ---------------------------------------------------------------------------
+  # POST   /transactions/payment/verify
+  # POST   /transactions/payment            ★ 결제 11단계
+  # GET    /transactions
+  # GET    /transactions/{id}
+  # POST   /transactions/{id}/refund
+  # GET    /transactions/stats/monthly
+  # GET    /users/me/wallet
+  # POST   /users/me/wallet/charge
+
+# =============================================================================
+#  COMPONENTS
+# =============================================================================
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Authorization: Bearer {accessToken} (Access 15분)"
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    MerchantId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: 가맹점 ObjectId
+
+  # ---- 표준 응답 봉투 (문서 7.3) ----
+  responses:
+    EmptySuccess:
+      description: 성공 (데이터 없음)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean, example: true }
+              data: { type: object, nullable: true }
+    ValidationError:
+      description: |
+        입력 검증 실패. details.fields 에 문제 입력, details.reason 에 사유를 명시한다.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: 입력값이 올바르지 않습니다.
+              details: { fields: ['lat'], reason: required_number }
+    Unauthorized:
+      description: 인증 실패
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example: { success: false, error: { code: UNAUTHORIZED, message: 인증이 필요합니다. } }
+    Forbidden:
+      description: 권한 없음
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example: { success: false, error: { code: FORBIDDEN, message: 접근 권한이 없습니다. } }
+    MerchantNotFound:
+      description: 가맹점 없음
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example: { success: false, error: { code: MERCHANT_NOT_FOUND, message: 가맹점을 찾을 수 없습니다. } }
+
+  schemas:
+
+    # ---- 공통 봉투 ----
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: 표준 에러 코드 (docs/error-codes.md 참조)
+              example: VALIDATION_ERROR
+            message: { type: string, example: 입력값이 올바르지 않습니다. }
+            details: { type: object, nullable: true, description: 개발 환경 전용 }
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 137 }
+        hasMore: { type: boolean, example: true }
+
+    AuthResult:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        user: { $ref: '#/components/schemas/User' }
+
+    # ---- 도메인: User (민감 필드 제외) ----
+    User:
+      type: object
+      properties:
+        _id: { type: string }
+        studentId: { type: string, nullable: true }
+        email: { type: string, format: email }
+        name: { type: string }
+        phone: { type: string }
+        role: { type: string, enum: [student, merchant, admin] }
+        walletBalance: { type: integer, description: 원 단위 정수, example: 5100 }
+        walletMonthlyCharged: { type: integer, example: 50000 }
+        cashbackTotal: { type: integer }
+        cashbackThisMonth: { type: integer }
+        isVerified: { type: boolean }
+        isActive: { type: boolean }
+        profileImage: { type: string, nullable: true }
+        lastLoginAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+      # 제외: passwordHash, refreshTokenHash, pushToken
+
+    DashboardSummary:
+      type: object
+      properties:
+        month: { type: string, example: "2026-05" }
+        totalSpent: { type: integer }
+        totalCashback: { type: integer }
+        paymentCount: { type: integer }
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category: { $ref: '#/components/schemas/MerchantCategory' }
+              amount: { type: integer }
+              count: { type: integer }
+
+    # ---- 도메인: Merchant ----
+    MerchantCategory:
+      type: string
+      enum: [restaurant, cafe, convenience, study, other]
+    GeoPoint:
+      type: object
+      properties:
+        type: { type: string, enum: [Point], example: Point }
+        coordinates:
+          type: array
+          items: { type: number }
+          minItems: 2
+          maxItems: 2
+          description: "[lng, lat] 순서 주의"
+          example: [127.2966, 36.6010]
+    MerchantSummary:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: 봉봉치킨 }
+        category: { $ref: '#/components/schemas/MerchantCategory' }
+        address: { type: string }
+        rating: { type: number, example: 4.5 }
+        reviewCount: { type: integer }
+        cashbackRate:
+          type: number
+          description: "캐시백 비율을 소수로 표기 (0.02 = 2%). 결제 시 Math.floor(amount*rate). 프론트는 *100 하여 % 표시. ⚠️ 정수 %(5) 아님"
+          example: 0.02
+        thumbnailImage:
+          type: string
+          description: "Merchant.images[0]. 없으면 백엔드가 https://picsum.photos/seed/{_id}/200 로 fallback (UI 깨짐 방지). 시드 단계도 동일 picsum 패턴"
+          example: https://picsum.photos/seed/665f1a2b/200
+    MerchantNearby:
+      # 프론트 types.ts(NearbyResponse.Merchant)와 1:1 일치. 결제 진입(staticQrCode)은
+      # 상세(GET /merchants/{id})에서 받는다 → 목록 응답엔 미포함.
+      allOf:
+        - $ref: '#/components/schemas/MerchantSummary'
+        - type: object
+          properties:
+            location: { $ref: '#/components/schemas/GeoPoint' }
+            distance: { type: number, description: "$geoNear 계산, 미터", example: 123 }
+    Merchant:
+      type: object
+      properties:
+        _id: { type: string }
+        ownerId: { type: string }
+        name: { type: string }
+        businessNo: { type: string }
+        category: { $ref: '#/components/schemas/MerchantCategory' }
+        description: { type: string }
+        address: { type: string }
+        location: { $ref: '#/components/schemas/GeoPoint' }
+        phone: { type: string }
+        images: { type: array, items: { type: string }, maxItems: 5 }
+        menu:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              price: { type: integer }
+              image: { type: string }
+              description: { type: string }
+              isAvailable: { type: boolean }
+        businessHours: { type: object, description: 요일별 영업시간 }
+        staticQrCode: { type: string }
+        feeRate: { type: number, example: 0.003 }
+        cashbackRate: { type: number, example: 0.02 }
+        rating: { type: number }
+        reviewCount: { type: integer }
+        totalSales: { type: integer }
+        isActive: { type: boolean }
+        isVerified: { type: boolean }
+        stampGoal: { type: integer, example: 10 }
+        stampReward: { type: string, example: 아메리카노 1잔 }
+        createdAt: { type: string, format: date-time }
+      # 제외: dynamicQrSecret
+    MerchantInput:
+      type: object
+      required: [name, businessNo, category, address, location]
+      properties:
+        name: { type: string }
+        businessNo: { type: string }
+        category: { $ref: '#/components/schemas/MerchantCategory' }
+        description: { type: string }
+        address: { type: string }
+        location: { $ref: '#/components/schemas/GeoPoint' }
+        phone: { type: string }
+        images: { type: array, items: { type: string }, maxItems: 5 }
+        menu: { type: array, items: { type: object } }
+        businessHours: { type: object }
+        cashbackRate: { type: number, maximum: 0.05 }
+        stampGoal: { type: integer }
+        stampReward: { type: string }
+    MerchantSales:
+      type: object
+      properties:
+        totalSales: { type: integer }
+        transactionCount: { type: integer }
+        byHour:
+          type: array
+          items:
+            type: object
+            properties:
+              hour: { type: integer }
+              amount: { type: integer }
+
+    # ---- 도메인: Stamp ----
+    Stamp:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string }
+        merchantId: { type: string }
+        currentCount: { type: integer, example: 9 }
+        totalEarned: { type: integer }
+        redeemedCount: { type: integer }
+        goal: { type: integer, example: 10 }
+        rewardDescription: { type: string }
+        lastEarnedAt: { type: string, format: date-time, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    # ---- 도메인: Coupon ----
+    Coupon:
+      type: object
+      properties:
+        _id: { type: string }
+        merchantId: { type: string }
+        userId: { type: string, nullable: true, description: template은 null }
+        type: { type: string, enum: [template, issued] }
+        title: { type: string }
+        discountType: { type: string, enum: [rate, fixed] }
+        discountValue: { type: number, description: "rate: 0.1=10%, fixed: 1000원" }
+        minimumAmount: { type: integer }
+        maxDiscountAmount: { type: integer, nullable: true }
+        isUsed: { type: boolean }
+        usedAt: { type: string, format: date-time, nullable: true }
+        issuedFrom: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    CouponTemplateInput:
+      type: object
+      required: [title, discountType, discountValue, expiresAt]
+      properties:
+        title: { type: string }
+        discountType: { type: string, enum: [rate, fixed] }
+        discountValue: { type: number }
+        minimumAmount: { type: integer, default: 0 }
+        maxDiscountAmount: { type: integer, description: rate 타입 한도 }
+        issueLimit: { type: integer }
+        expiresAt: { type: string, format: date-time }
+
+    # ---- 도메인: Review ----
+    Review:
+      type: object
+      properties:
+        _id: { type: string }
+        merchantId: { type: string }
+        userId: { type: string }
+        transactionId: { type: string, description: 거래당 1개(unique) }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        content: { type: string, maxLength: 500 }
+        images: { type: array, items: { type: string }, maxItems: 3 }
+        isVisible: { type: boolean }
+        likeCount: { type: integer }
+        reportCount: { type: integer }
+        ownerReply:
+          type: object
+          nullable: true
+          properties:
+            content: { type: string }
+            repliedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    # ---- 도메인: Notification ----
+    Notification:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string }
+        type: { type: string, enum: [payment, cashback, coupon_expire, stamp, charge, system] }
+        title: { type: string }
+        body: { type: string }
+        data: { type: object, description: 딥링크 데이터 }
+        isRead: { type: boolean }
+        readAt: { type: string, format: date-time, nullable: true }
+        relatedId: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time, description: 기본 90일 후 TTL }
+        createdAt: { type: string, format: date-time }
