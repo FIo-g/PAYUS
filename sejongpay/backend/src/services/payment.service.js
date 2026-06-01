@@ -486,4 +486,51 @@ async function processPayment({ qrToken, amount, couponId, idempotencyKey, userI
   return paymentTx;
 }
 
-module.exports = { processPayment, generateTxNo };
+// ── B-4 QR 사전검증(read-only) — nonce 미소비, DB mutation 없음 ──────────────
+/**
+ * 결제 전 QR 미리보기 검증. processPayment 의 ②.1~②.4(주장 merchantId 추출 →
+ * 가맹점/secret 조회 → 서명·만료 검증 → 권위 merchantId 일치 확인)와 동일한 권위
+ * 검증을 수행하되, nonce 를 소비하지 않고(consumeNonce 호출 안 함) 머니/거래도 만들지
+ * 않는 순수 읽기 함수다. 따라서 verify 후 실제 결제에서 같은 QR 의 nonce 가 정상 소비된다.
+ *
+ * @param {object} args
+ * @param {string} args.qrToken
+ * @returns {Promise<{ merchantName: string, category: string, cashbackRate: number }>}
+ * @throws {InvalidQrTokenError}   토큰 형식/서명/만료/가맹점 불일치 (400)
+ * @throws {MerchantNotFoundError} 가맹점 없음 (404)
+ */
+async function verifyPaymentQr({ qrToken }) {
+  if (!qrToken || typeof qrToken !== 'string') {
+    throw new InvalidQrTokenError('QR 토큰이 필요합니다.');
+  }
+
+  // 1) 토큰 payload 에서 '주장된' merchantId 추출 (ObjectId 형식 검증 포함, 아직 신뢰 X).
+  const { merchantId: claimedMerchantId } =
+    qrTokenService.parseClaimedPayload(qrToken);
+
+  // 2) 그 merchantId 로 가맹점/secret 조회.
+  const merchant = await Merchant.findById(claimedMerchantId);
+  if (!merchant) {
+    throw new MerchantNotFoundError();
+  }
+
+  // 3) 가맹점 secret 으로 서명·만료 검증(순수 crypto, nonce 미소비).
+  //    secret 미설정이면 verifyDynamicQrToken 이 InternalError(500)를 던진다.
+  const { merchantId } = qrTokenService.verifyDynamicQrToken(
+    qrToken,
+    merchant.dynamicQrSecret
+  );
+
+  // 4) 주장된 merchantId 가 서명 검증된 권위 값과 다르면 거부.
+  if (String(merchantId) !== String(merchant._id)) {
+    throw new InvalidQrTokenError('QR 가맹점 정보가 일치하지 않습니다.');
+  }
+
+  return {
+    merchantName: merchant.name,
+    category: merchant.category,
+    cashbackRate: merchant.cashbackRate,
+  };
+}
+
+module.exports = { processPayment, generateTxNo, verifyPaymentQr };
