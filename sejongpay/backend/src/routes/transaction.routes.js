@@ -16,8 +16,11 @@ const router = express.Router();
 const { postPayment, listTransactions, getTransaction } =
   require('../controllers/transaction.controller');
 const { paymentLimiter } = require('../middlewares/rateLimit');
+const { authenticate } = require('../middlewares/auth');
 
-// auth middleware (유현석) mounts here — 예: router.use(require('../middlewares/auth'));
+// 모든 거래 엔드포인트는 인증 필수 — req.user(User 문서)를 주입한다.
+// (coupon/stamp/notification/user.routes 와 동일한 router.use(authenticate) 패턴)
+router.use(authenticate);
 
 /**
  * POST /api/v1/transactions/payment

@@ -22,7 +22,7 @@ const { ok } = require('../utils/response');
 const postPayment = asyncHandler(async (req, res) => {
   const { qrToken, amount, couponId, idempotencyKey } = req.body;
 
-  const userId = req.user.userId;
+  const userId = req.user._id;
 
   const tx = await paymentService.processPayment({
     qrToken,
@@ -43,7 +43,7 @@ const postPayment = asyncHandler(async (req, res) => {
  */
 // req.user injected by auth middleware (유현석)
 const listTransactions = asyncHandler(async (req, res) => {
-  const userId = req.user.userId;
+  const userId = req.user._id;
   const { cursor, type, from, to } = req.query;
   const limit = req.query.limit !== undefined ? Number(req.query.limit) : undefined;
 
@@ -66,7 +66,7 @@ const listTransactions = asyncHandler(async (req, res) => {
  */
 // req.user injected by auth middleware (유현석)
 const getTransaction = asyncHandler(async (req, res) => {
-  const userId = req.user.userId;
+  const userId = req.user._id;
   const transactionId = req.params.id;
 
   const tx = await transactionService.getTransactionById({ userId, transactionId });

@@ -7,6 +7,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
+    "seed:reset": "node src/scripts/seed.js --reset",
+    "migrate:indexes": "node scripts/migrate-indexes.js",
     "test": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage"
   },
