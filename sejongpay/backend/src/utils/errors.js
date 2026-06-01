@@ -108,6 +108,82 @@ class NotFoundError extends AppError {
   }
 }
 
+// ─── Auth 도메인 에러 (유현석) ───────────────────────────────
+// 코드는 docs/error-codes.md 의 인증 확장 코드와 1:1. ErrorCode enum 병합 대상.
+class InvalidCredentialsError extends AppError {
+  constructor(message = '이메일 또는 비밀번호가 일치하지 않습니다.', details) {
+    super('INVALID_CREDENTIALS', 401, message, details);
+  }
+}
+
+class EmailAlreadyExistsError extends AppError {
+  constructor(message = '이미 사용 중인 이메일입니다.', details) {
+    super('EMAIL_ALREADY_EXISTS', 409, message, details);
+  }
+}
+
+class StudentIdAlreadyExistsError extends AppError {
+  constructor(message = '이미 사용 중인 학번입니다.', details) {
+    super('STUDENT_ID_ALREADY_EXISTS', 409, message, details);
+  }
+}
+
+class InvalidRefreshTokenError extends AppError {
+  constructor(message = '세션이 만료되었습니다. 다시 로그인해 주세요.', details) {
+    super('INVALID_REFRESH_TOKEN', 401, message, details);
+  }
+}
+
+class NotVerifiedError extends AppError {
+  constructor(message = '학번 인증이 필요합니다.', details) {
+    super('NOT_VERIFIED', 403, message, details);
+  }
+}
+
+// ─── Coupon / Stamp 도메인 에러 (유현석) ─────────────────────
+class CouponNotFoundError extends AppError {
+  constructor(message = '쿠폰을 찾을 수 없습니다.', details) {
+    super('COUPON_NOT_FOUND', 404, message, details);
+  }
+}
+
+class CouponSoldOutError extends AppError {
+  constructor(message = '쿠폰이 모두 소진되었습니다.', details) {
+    super('COUPON_ISSUE_LIMIT_EXCEEDED', 400, message, details);
+  }
+}
+
+class CouponMinimumNotMetError extends AppError {
+  constructor(message = '최소 결제 금액을 충족하지 않습니다.', details) {
+    super('COUPON_MIN_AMOUNT_NOT_MET', 400, message, details);
+  }
+}
+
+class StampNotFoundError extends AppError {
+  constructor(message = '스탬프 카드를 찾을 수 없습니다.', details) {
+    super('STAMP_NOT_FOUND', 404, message, details);
+  }
+}
+
+// ─── Review / Notification 도메인 에러 (유현석) ──────────────
+class ReviewAlreadyExistsError extends AppError {
+  constructor(message = '이미 리뷰를 작성한 거래입니다.', details) {
+    super('REVIEW_ALREADY_EXISTS', 409, message, details);
+  }
+}
+
+class ReviewNotFoundError extends AppError {
+  constructor(message = '리뷰를 찾을 수 없습니다.', details) {
+    super('REVIEW_NOT_FOUND', 404, message, details);
+  }
+}
+
+class NotificationNotFoundError extends AppError {
+  constructor(message = '알림을 찾을 수 없습니다.', details) {
+    super('NOTIFICATION_NOT_FOUND', 404, message, details);
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -123,4 +199,19 @@ module.exports = {
   CouponAlreadyUsedError,
   InternalError,
   NotFoundError,
+  // Auth 도메인 (유현석)
+  InvalidCredentialsError,
+  EmailAlreadyExistsError,
+  StudentIdAlreadyExistsError,
+  InvalidRefreshTokenError,
+  NotVerifiedError,
+  // Coupon/Stamp 도메인 (유현석)
+  CouponNotFoundError,
+  CouponSoldOutError,
+  CouponMinimumNotMetError,
+  StampNotFoundError,
+  // Review/Notification 도메인 (유현석)
+  ReviewAlreadyExistsError,
+  ReviewNotFoundError,
+  NotificationNotFoundError,
 };
