@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 /* src/styles/index.css — 글로벌 스타일 */
 @tailwind base;
 @tailwind components;
@@ -5,7 +7,7 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+    @apply bg-surface-page text-content-primary font-sans antialiased;
     /* 모바일 퍼스트: 최대 너비 제한 */
     max-width: 430px;
     margin: 0 auto;
