@@ -53,7 +53,7 @@ api.interceptors.response.use(
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken: tokenStore.refreshToken,
         });
-        setTokens(data.accessToken, tokenStore.refreshToken);
+        setTokens(data.data.accessToken, tokenStore.refreshToken);
         return api(original); // 원래 요청 재시도
       } catch {
         clearTokens(); // Refresh도 만료 → 로그아웃
