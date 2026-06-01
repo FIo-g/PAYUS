@@ -165,6 +165,25 @@ class StampNotFoundError extends AppError {
   }
 }
 
+// ─── Review / Notification 도메인 에러 (유현석) ──────────────
+class ReviewAlreadyExistsError extends AppError {
+  constructor(message = '이미 리뷰를 작성한 거래입니다.', details) {
+    super('REVIEW_ALREADY_EXISTS', 409, message, details);
+  }
+}
+
+class ReviewNotFoundError extends AppError {
+  constructor(message = '리뷰를 찾을 수 없습니다.', details) {
+    super('REVIEW_NOT_FOUND', 404, message, details);
+  }
+}
+
+class NotificationNotFoundError extends AppError {
+  constructor(message = '알림을 찾을 수 없습니다.', details) {
+    super('NOTIFICATION_NOT_FOUND', 404, message, details);
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -191,4 +210,8 @@ module.exports = {
   CouponSoldOutError,
   CouponMinimumNotMetError,
   StampNotFoundError,
+  // Review/Notification 도메인 (유현석)
+  ReviewAlreadyExistsError,
+  ReviewNotFoundError,
+  NotificationNotFoundError,
 };

@@ -29,6 +29,8 @@ const errorHandler = require('./middlewares/errorHandler');
 const authRouter = require('./routes/auth.routes');
 const stampRouter = require('./routes/stamp.routes');
 const couponRouter = require('./routes/coupon.routes');
+const reviewRouter = require('./routes/review.routes');
+const notificationRouter = require('./routes/notification.routes');
 const transactionRouter = require('./routes/transaction.routes');
 const merchantRouter = require('./routes/merchant.routes');
 
@@ -68,6 +70,8 @@ app.use(generalLimiter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/stamps', stampRouter);
 app.use('/api/v1/coupons', couponRouter);
+app.use('/api/v1/reviews', reviewRouter);
+app.use('/api/v1/notifications', notificationRouter);
 app.use('/api/v1/transactions', transactionRouter);
 app.use('/api/v1/merchants', merchantRouter);
 

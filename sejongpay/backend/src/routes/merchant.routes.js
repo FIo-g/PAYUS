@@ -11,12 +11,17 @@ const router = require('express').Router();
 const { authenticate, authorize } = require('../middlewares/auth');
 const ctrl = require('../controllers/merchant.controller');
 const { postDynamicQr } = require('../controllers/merchant-qr.controller');
+const reviewCtrl = require('../controllers/review.controller');
 
 // ── 공개 ─────────────────────────────────────────────────────
 // /nearby 는 /:id 보다 먼저 선언 (라우트 충돌 방지)
 router.get('/', ctrl.getMerchants);
 router.get('/nearby', ctrl.getNearbyMerchants);
 router.get('/:id', ctrl.getMerchant);
+
+// ── 가맹점 리뷰 (중첩, review 도메인) ────────────────────────
+router.get('/:id/reviews', reviewCtrl.getReviews);
+router.post('/:id/reviews', authenticate, reviewCtrl.createReview);
 
 // ── 가맹점주 ─────────────────────────────────────────────────
 router.get('/:id/qrcode/static', authenticate, authorize('merchant'), ctrl.getStaticQr);
