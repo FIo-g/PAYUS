@@ -74,4 +74,17 @@ const getTransaction = asyncHandler(async (req, res) => {
   res.json(ok(tx));
 });
 
-module.exports = { postPayment, listTransactions, getTransaction };
+/**
+ * POST /api/v1/transactions/payment/verify
+ *
+ * Body: { qrToken } — 결제 전 QR 미리보기 검증(read-only).
+ * 가맹점 정보({merchantName, category, cashbackRate})만 반환하며 DB 를 변경하지 않는다.
+ */
+// req.user injected by auth middleware (유현석)
+const verifyPayment = asyncHandler(async (req, res) => {
+  const { qrToken } = req.body;
+  const info = await paymentService.verifyPaymentQr({ qrToken });
+  res.json(ok(info));
+});
+
+module.exports = { postPayment, verifyPayment, listTransactions, getTransaction };

@@ -13,7 +13,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { postPayment, listTransactions, getTransaction } =
+const { postPayment, verifyPayment, listTransactions, getTransaction } =
   require('../controllers/transaction.controller');
 const { paymentLimiter } = require('../middlewares/rateLimit');
 const { authenticate } = require('../middlewares/auth');
@@ -21,6 +21,15 @@ const { authenticate } = require('../middlewares/auth');
 // 모든 거래 엔드포인트는 인증 필수 — req.user(User 문서)를 주입한다.
 // (coupon/stamp/notification/user.routes 와 동일한 router.use(authenticate) 패턴)
 router.use(authenticate);
+
+/**
+ * POST /api/v1/transactions/payment/verify
+ *
+ * 결제 전 QR 사전검증(read-only). nonce 를 소비하지 않으며 DB 를 변경하지 않는다.
+ * 구체 경로(/payment/verify)를 동적 파라미터 라우트(/:id)보다 먼저 선언한다.
+ * paymentLimiter(분당 10회): 가맹점 enumeration/HMAC CPU 남용을 차단(결제 경로와 정합).
+ */
+router.post('/payment/verify', paymentLimiter, verifyPayment);
 
 /**
  * POST /api/v1/transactions/payment

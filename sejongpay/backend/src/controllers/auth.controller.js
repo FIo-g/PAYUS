@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User.model');
 const env = require('../config/env');
 const asyncHandler = require('../middlewares/asyncHandler');

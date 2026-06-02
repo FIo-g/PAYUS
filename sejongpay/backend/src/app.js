@@ -28,6 +28,7 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const authRouter = require('./routes/auth.routes');
 const userRouter = require('./routes/user.routes');
+const walletRouter = require('./routes/wallet.routes');
 const stampRouter = require('./routes/stamp.routes');
 const couponRouter = require('./routes/coupon.routes');
 const reviewRouter = require('./routes/review.routes');
@@ -70,6 +71,9 @@ app.use(generalLimiter);
 // 현재는 컨트롤러/라우터 내부 주석으로 통합 지점을 표시해 두었다.
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
+// 김태형: 지갑(/me/wallet*, /me/transactions) — 프로필(userRouter) 뒤로 마운트.
+// userRouter 가 /me·/me/dashboard 를 먼저 처리하고, 매칭 안 된 /me/wallet* 만 여기로 떨어진다.
+app.use('/api/v1/users', walletRouter);
 app.use('/api/v1/stamps', stampRouter);
 app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/reviews', reviewRouter);
