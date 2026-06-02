@@ -5,13 +5,13 @@ export const authService = {
   register: async (data) => {
     const res = await api.post('/auth/register', data);
     setTokens(res.data.data.accessToken, res.data.data.refreshToken);
-    return { data: res.data.data.user };
+    return res.data;
   },
 
   login: async (data) => {
     const res = await api.post('/auth/login', data);
     setTokens(res.data.data.accessToken, res.data.data.refreshToken);
-    return { data: res.data.data.user };
+    return res.data;
   },
 
   logout: async () => {
