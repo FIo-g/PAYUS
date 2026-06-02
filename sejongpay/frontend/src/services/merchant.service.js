@@ -3,6 +3,7 @@ import api from './api';
 
 export const merchantService = {
   getAll: (params) => api.get('/merchants', { params }).then((r) => r.data),
+  getMine: () => api.get('/merchants/me').then((r) => r.data),
   getNearby: (params) => api.get('/merchants/nearby', { params }).then((r) => r.data),
   getById: (id) => api.get(`/merchants/${id}`).then((r) => r.data),
   update: (id, data) => api.put(`/merchants/${id}`, data).then((r) => r.data),
