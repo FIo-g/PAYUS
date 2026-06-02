@@ -27,6 +27,7 @@ router.post('/:id/reviews', authenticate, reviewCtrl.createReview);
 router.get('/:id/qrcode/static', authenticate, authorize('merchant'), ctrl.getStaticQr);
 router.post('/:id/qrcode/dynamic', authenticate, authorize('merchant'), postDynamicQr);
 router.get('/:id/sales', authenticate, authorize('merchant', 'admin'), ctrl.getSales);
+router.get('/:id/settlement', authenticate, authorize('merchant', 'admin'), ctrl.getSettlement);
 router.put('/:id', authenticate, authorize('merchant'), ctrl.updateMerchant);
 
 // ── 관리자 ───────────────────────────────────────────────────

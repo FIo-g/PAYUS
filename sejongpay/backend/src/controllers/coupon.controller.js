@@ -53,17 +53,42 @@ const getAvailableCoupons = asyncHandler(async (req, res) => {
 
 /** POST /coupons/:templateId/claim — 쿠폰 수령 */
 const claimCoupon = asyncHandler(async (req, res) => {
-  const template = await Coupon.findOne({
-    _id: req.params.templateId,
-    type: 'template',
-    expiresAt: { $gt: new Date() },
+  const now = new Date();
+
+  // 중복 수령 방지 (best-effort). 완전 원자화는 {issuedFrom,userId} unique 인덱스 필요 — 강동한 협의.
+  const existing = await Coupon.findOne({
+    issuedFrom: req.params.templateId,
+    userId: req.user._id,
+    isUsed: false,
   });
-  if (!template) throw new CouponNotFoundError('쿠폰을 찾을 수 없거나 만료되었습니다.');
-  if (template.issueLimit && template.totalIssued >= template.issueLimit) {
+  if (existing) throw new CouponAlreadyUsedError('이미 수령한 쿠폰입니다.');
+
+  // ★ 원자적 발급: issueLimit 미만일 때만 totalIssued 를 1 증가 (동시 요청 초과발급 방지).
+  //   issueLimit 이 없거나(null) 미만이면 통과. 단일 findOneAndUpdate 라 race-free.
+  const template = await Coupon.findOneAndUpdate(
+    {
+      _id: req.params.templateId,
+      type: 'template',
+      expiresAt: { $gt: now },
+      $expr: {
+        $or: [
+          { $eq: [{ $ifNull: ['$issueLimit', null] }, null] },
+          { $lt: ['$totalIssued', '$issueLimit'] },
+        ],
+      },
+    },
+    { $inc: { totalIssued: 1 } },
+    { new: true }
+  );
+
+  if (!template) {
+    // 증가 실패 → 없음/만료 vs 소진 구분
+    const t = await Coupon.findOne({ _id: req.params.templateId, type: 'template' });
+    if (!t || t.expiresAt <= now) {
+      throw new CouponNotFoundError('쿠폰을 찾을 수 없거나 만료되었습니다.');
+    }
     throw new CouponSoldOutError();
   }
-  const existing = await Coupon.findOne({ issuedFrom: template._id, userId: req.user._id, isUsed: false });
-  if (existing) throw new CouponAlreadyUsedError('이미 수령한 쿠폰입니다.');
 
   const issued = await Coupon.create({
     merchantId: template.merchantId,
@@ -77,8 +102,6 @@ const claimCoupon = asyncHandler(async (req, res) => {
     issuedFrom: template._id,
     expiresAt: template.expiresAt,
   });
-  template.totalIssued += 1;
-  await template.save();
 
   res.status(201).json(ok(issued));
 });

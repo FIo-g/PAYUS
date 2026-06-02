@@ -495,6 +495,43 @@ paths:
                       data: { $ref: '#/components/schemas/MerchantSales' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /api/v1/merchants/{id}/settlement:
+    parameters:
+      - $ref: '#/components/parameters/MerchantId'
+    get:
+      tags: [Merchants]
+      summary: 가맹점 정산 내역 (점주 본인/admin)
+      description: 기간 내 결제 합·수수료·쿠폰할인 합계 + 정산액(결제합−수수료) + 최근 거래 100건.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          summary:
+                            type: object
+                            properties:
+                              totalPayments: { type: integer }
+                              totalFees: { type: integer }
+                              totalCouponDiscounts: { type: integer }
+                              count: { type: integer }
+                              settlementAmount: { type: integer }
+                          transactions:
+                            type: array
+                            items: { type: object }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/MerchantNotFound' }
+
   /api/v1/merchants/{id}/reviews:
     parameters:
       - $ref: '#/components/parameters/MerchantId'

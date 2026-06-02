@@ -193,6 +193,54 @@ const getSales = asyncHandler(async (req, res) => {
   res.json(ok({ period, stats }));
 });
 
+/** GET /merchants/:id/settlement — 정산 내역 (가맹점주 본인/admin) */
+const getSettlement = asyncHandler(async (req, res) => {
+  const { from, to } = req.query;
+
+  const merchant = await Merchant.findById(req.params.id).select('ownerId name');
+  if (!merchant) throw new MerchantNotFoundError();
+  if (req.user.role !== 'admin' && String(merchant.ownerId) !== String(req.user._id)) {
+    throw new ForbiddenError('본인 가맹점만 조회할 수 있습니다.');
+  }
+
+  const match = { merchantId: merchant._id, type: 'payment', status: 'completed' };
+  if (from || to) {
+    match.createdAt = {};
+    if (from) match.createdAt.$gte = new Date(from);
+    if (to) match.createdAt.$lte = new Date(to);
+  }
+
+  const [summaryAgg, transactions] = await Promise.all([
+    Transaction.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalPayments: { $sum: '$amount' },
+          totalFees: { $sum: '$feeAmount' },
+          totalCouponDiscounts: { $sum: '$couponDiscount' },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    Transaction.find(match)
+      .select('transactionNo amount feeAmount couponDiscount createdAt')
+      .sort({ createdAt: -1 })
+      .limit(100),
+  ]);
+
+  const summary = summaryAgg[0] || {
+    totalPayments: 0,
+    totalFees: 0,
+    totalCouponDiscounts: 0,
+    count: 0,
+  };
+  // 정산액 = 결제 합 − 수수료. (feeAmount는 결제 기록 시 payment.service가 채워야 정확 — 현재 0일 수 있음)
+  summary.settlementAmount = summary.totalPayments - summary.totalFees;
+
+  res.json(ok({ summary, transactions }));
+});
+
 module.exports = {
   getMerchants,
   getNearbyMerchants,
@@ -202,4 +250,5 @@ module.exports = {
   deleteMerchant,
   getStaticQr,
   getSales,
+  getSettlement,
 };
