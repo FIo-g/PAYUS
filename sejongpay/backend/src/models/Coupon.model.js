@@ -84,4 +84,15 @@ const couponSchema = new mongoose.Schema(
 couponSchema.index({ userId: 1, isUsed: 1, expiresAt: 1 });
 couponSchema.index({ merchantId: 1, type: 1 });
 
+// 유저당 같은 템플릿(issuedFrom)에서 발급받은 '미사용' 쿠폰은 1장만 허용(동시 중복수령 방지).
+// 사용(isUsed:true) 후에는 재수령 가능(부분 인덱스라 used 문서는 제외됨).
+couponSchema.index(
+  { issuedFrom: 1, userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { type: 'issued', isUsed: false },
+    name: 'uniq_unused_issued_per_user',
+  }
+);
+
 module.exports = mongoose.model('Coupon', couponSchema);

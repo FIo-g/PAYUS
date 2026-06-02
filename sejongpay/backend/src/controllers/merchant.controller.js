@@ -101,6 +101,13 @@ const getMerchant = asyncHandler(async (req, res) => {
   res.json(ok(merchant));
 });
 
+/** GET /merchants/me — 로그인한 가맹점주 본인의 가맹점 */
+const getMyMerchant = asyncHandler(async (req, res) => {
+  const merchant = await Merchant.findOne({ ownerId: req.user._id }).select('-dynamicQrSecret');
+  if (!merchant) throw new MerchantNotFoundError('등록된 가맹점이 없습니다.');
+  res.json(ok(merchant));
+});
+
 /** POST /merchants — 등록 (admin) */
 const createMerchant = asyncHandler(async (req, res) => {
   const data = { ...req.body };
@@ -245,6 +252,7 @@ module.exports = {
   getMerchants,
   getNearbyMerchants,
   getMerchant,
+  getMyMerchant,
   createMerchant,
   updateMerchant,
   deleteMerchant,

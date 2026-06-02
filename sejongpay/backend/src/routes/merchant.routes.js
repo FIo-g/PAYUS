@@ -17,6 +17,8 @@ const reviewCtrl = require('../controllers/review.controller');
 // /nearby 는 /:id 보다 먼저 선언 (라우트 충돌 방지)
 router.get('/', ctrl.getMerchants);
 router.get('/nearby', ctrl.getNearbyMerchants);
+// 가맹점주 본인 가맹점 (/:id 보다 먼저 — 라우트 충돌 방지)
+router.get('/me', authenticate, authorize('merchant'), ctrl.getMyMerchant);
 router.get('/:id', ctrl.getMerchant);
 
 // ── 가맹점 리뷰 (중첩, review 도메인) ────────────────────────

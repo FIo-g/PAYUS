@@ -19,8 +19,11 @@
 //                  {userId, createdAt:-1}, {merchantId, createdAt:-1}, {status, type}
 //   - QrNonce    : nonce unique, expiresAt TTL(0)
 //   - Stamp      : {userId, merchantId} unique, {userId, currentCount}
-//   - Coupon     : {userId, isUsed, expiresAt}, {merchantId, type}
+//   - Coupon     : {userId, isUsed, expiresAt}, {merchantId, type}, {issuedFrom, userId} PARTIAL unique (type=issued, isUsed=false)
 //   - Notification: {userId, isRead, createdAt:-1}, expiresAt TTL(0)
+//
+// ⚠️ WARNING: 운영 DB에 기존 중복(미사용) 발급 쿠폰이 있으면 이 유니크 인덱스 빌드가 실패할 수 있으니,
+//             마이그레이션 전에 (issuedFrom,userId,isUsed:false) 중복 정리 필요.
 //
 // 주의: syncIndexes() 는 partialFilterExpression / TTL / 2dsphere 옵션을
 // 모두 보존해서 비교하므로 모델만 신뢰의 단일 출처(single source of truth)다.

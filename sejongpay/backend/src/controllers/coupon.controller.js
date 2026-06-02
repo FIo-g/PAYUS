@@ -5,6 +5,7 @@
 // 발급/수령/조회/검증. 발급/검증 로직 일부는 coupon.service 재사용.
 // ─────────────────────────────────────────────────────────────
 
+const mongoose = require('mongoose');
 const Coupon = require('../models/Coupon.model');
 const Merchant = require('../models/Merchant.model');
 const asyncHandler = require('../middlewares/asyncHandler');
@@ -55,7 +56,8 @@ const getAvailableCoupons = asyncHandler(async (req, res) => {
 const claimCoupon = asyncHandler(async (req, res) => {
   const now = new Date();
 
-  // 중복 수령 방지 (best-effort). 완전 원자화는 {issuedFrom,userId} unique 인덱스 필요 — 강동한 협의.
+  // 중복 수령 방지 (빠른 친절 응답용 fast-path). 진짜 원자성 보장은 아래 트랜잭션 +
+  // {issuedFrom,userId} 부분 유니크 인덱스가 담당한다(동시 중복수령 시 11000 으로 롤백).
   const existing = await Coupon.findOne({
     issuedFrom: req.params.templateId,
     userId: req.user._id,
@@ -63,45 +65,68 @@ const claimCoupon = asyncHandler(async (req, res) => {
   });
   if (existing) throw new CouponAlreadyUsedError('이미 수령한 쿠폰입니다.');
 
-  // ★ 원자적 발급: issueLimit 미만일 때만 totalIssued 를 1 증가 (동시 요청 초과발급 방지).
-  //   issueLimit 이 없거나(null) 미만이면 통과. 단일 findOneAndUpdate 라 race-free.
-  const template = await Coupon.findOneAndUpdate(
-    {
-      _id: req.params.templateId,
-      type: 'template',
-      expiresAt: { $gt: now },
-      $expr: {
-        $or: [
-          { $eq: [{ $ifNull: ['$issueLimit', null] }, null] },
-          { $lt: ['$totalIssued', '$issueLimit'] },
-        ],
-      },
-    },
-    { $inc: { totalIssued: 1 } },
-    { new: true }
-  );
+  // 트랜잭션 안에서 (1) issueLimit 가드 차감 → (2) issued 쿠폰 생성 을 원자적으로 수행한다.
+  // 동시 중복수령으로 유니크 인덱스가 11000 을 던지면 트랜잭션이 abort 되어 totalIssued 증가도 롤백된다.
+  let issued;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      // ★ 원자적 발급: issueLimit 미만일 때만 totalIssued 를 1 증가 (동시 요청 초과발급 방지).
+      //   issueLimit 이 없거나(null) 미만이면 통과. 단일 findOneAndUpdate 라 race-free.
+      const template = await Coupon.findOneAndUpdate(
+        {
+          _id: req.params.templateId,
+          type: 'template',
+          expiresAt: { $gt: now },
+          $expr: {
+            $or: [
+              { $eq: [{ $ifNull: ['$issueLimit', null] }, null] },
+              { $lt: ['$totalIssued', '$issueLimit'] },
+            ],
+          },
+        },
+        { $inc: { totalIssued: 1 } },
+        { new: true, session }
+      );
 
-  if (!template) {
-    // 증가 실패 → 없음/만료 vs 소진 구분
-    const t = await Coupon.findOne({ _id: req.params.templateId, type: 'template' });
-    if (!t || t.expiresAt <= now) {
-      throw new CouponNotFoundError('쿠폰을 찾을 수 없거나 만료되었습니다.');
-    }
-    throw new CouponSoldOutError();
+      if (!template) {
+        // 증가 실패 → 없음/만료 vs 소진 구분
+        const t = await Coupon.findOne({ _id: req.params.templateId, type: 'template' }).session(session);
+        if (!t || t.expiresAt <= now) {
+          throw new CouponNotFoundError('쿠폰을 찾을 수 없거나 만료되었습니다.');
+        }
+        throw new CouponSoldOutError();
+      }
+
+      try {
+        // session 사용 시 create 는 배열 형태가 필수.
+        const [created] = await Coupon.create(
+          [
+            {
+              merchantId: template.merchantId,
+              userId: req.user._id,
+              type: 'issued',
+              title: template.title,
+              discountType: template.discountType,
+              discountValue: template.discountValue,
+              minimumAmount: template.minimumAmount,
+              maxDiscountAmount: template.maxDiscountAmount,
+              issuedFrom: template._id,
+              expiresAt: template.expiresAt,
+            },
+          ],
+          { session }
+        );
+        issued = created;
+      } catch (err) {
+        // 부분 유니크 인덱스 위반 → 동시 중복수령. 트랜잭션 abort 로 totalIssued 증가가 롤백된다.
+        if (err.code === 11000) throw new CouponAlreadyUsedError('이미 수령한 쿠폰입니다.');
+        throw err;
+      }
+    });
+  } finally {
+    session.endSession();
   }
-
-  const issued = await Coupon.create({
-    merchantId: template.merchantId,
-    userId: req.user._id,
-    type: 'issued',
-    title: template.title,
-    discountType: template.discountType,
-    discountValue: template.discountValue,
-    minimumAmount: template.minimumAmount,
-    maxDiscountAmount: template.maxDiscountAmount,
-    issuedFrom: template._id,
-    expiresAt: template.expiresAt,
-  });
 
   res.status(201).json(ok(issued));
 });
