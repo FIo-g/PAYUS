@@ -4,13 +4,13 @@ import api, { setTokens, clearTokens } from './api';
 export const authService = {
   register: async (data) => {
     const res = await api.post('/auth/register', data);
-    setTokens(res.data.accessToken, res.data.refreshToken);
+    setTokens(res.data.data.accessToken, res.data.data.refreshToken);
     return res.data;
   },
 
   login: async (data) => {
     const res = await api.post('/auth/login', data);
-    setTokens(res.data.accessToken, res.data.refreshToken);
+    setTokens(res.data.data.accessToken, res.data.data.refreshToken);
     return res.data;
   },
 

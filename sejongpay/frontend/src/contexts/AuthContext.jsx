@@ -31,13 +31,12 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await authService.login({ email, password });
-    setUser(res.data);
+    setUser(res.data.user);
     return res;
   }, []);
-
   const register = useCallback(async (data) => {
     const res = await authService.register(data);
-    setUser(res.data);
+    setUser(res.data.user);
     return res;
   }, []);
 
