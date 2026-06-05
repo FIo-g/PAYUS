@@ -24,9 +24,12 @@ export default function TransactionPage() {
         const params = {};
         if (filter !== 'all') params.type = filter;
         const res = await transactionService.getAll(params);
-        setTransactions(res.data.transactions);
+        // 백엔드 계약: { success, data: { items, pagination } } (커서 페이지네이션)
+        const items = res?.data?.items ?? [];
+        setTransactions(items);
       } catch {
-        // 에러 처리
+        // 에러 시에도 빈 배열 유지하여 백화면 방지
+        setTransactions([]);
       } finally {
         setLoading(false);
       }
@@ -40,6 +43,15 @@ export default function TransactionPage() {
     { key: 'charge', label: '충전' },
     { key: 'cashback', label: '캐시백' },
   ];
+
+  // 거래 타입 한국어 라벨 (목록 응답은 merchantId populate 안 됨 → 타입 폴백)
+  const typeLabels = {
+    payment: '결제',
+    charge: '지갑 충전',
+    cashback: '캐시백',
+    refund: '환불',
+    stamp_reward: '스탬프 보상',
+  };
 
   return (
     <PageLayout>
@@ -78,7 +90,7 @@ export default function TransactionPage() {
                 )}
                 <div>
                   <p className="font-medium text-sm">
-                    {tx.merchantId?.name || (tx.type === 'charge' ? '지갑 충전' : tx.type)}
+                    {tx.merchantId?.name || typeLabels[tx.type] || tx.type}
                   </p>
                   <p className="text-xs text-gray-400">
                     {format(new Date(tx.createdAt), 'M월 d일 HH:mm', { locale: ko })}
@@ -87,7 +99,7 @@ export default function TransactionPage() {
               </div>
               <p className={`font-semibold ${tx.type === 'payment' ? 'text-red-500' : 'text-green-500'}`}>
                 {tx.type === 'payment' ? '-' : '+'}
-                {tx.amount.toLocaleString()}원
+                {tx.amount?.toLocaleString()}원
               </p>
             </Card>
           ))
