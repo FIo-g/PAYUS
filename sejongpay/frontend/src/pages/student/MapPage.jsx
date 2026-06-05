@@ -18,7 +18,8 @@ const RADIUS = 1500;
 
 export default function MapPage() {
   const navigate = useNavigate();
-  const kakaoKey = import.meta.env.VITE_KAKAO_MAPS_KEY;
+  // trim: 배포 플랫폼 env 입력 시 섞이는 앞뒤 공백 방어 (공백 1칸으로 SDK 전체가 거절된 사례 있음)
+  const kakaoKey = (import.meta.env.VITE_KAKAO_MAPS_KEY || '').trim();
   const [loading, error] = useKakaoLoader({
     appkey: kakaoKey,
     libraries: ['services'],
