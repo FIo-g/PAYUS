@@ -12,8 +12,8 @@ import { Header } from '../../components/layout/Header';
 import { Loading } from '../../components/common/Loading';
 import { CATEGORIES } from '../../constants';
 
-// 고려대 세종캠퍼스
-const DEFAULT_CENTER = { lat: 36.6004, lng: 127.2858 };
+// 고려대 세종캠퍼스 학술정보원 (카카오 장소검색 좌표 — 세종로 2511)
+const DEFAULT_CENTER = { lat: 36.60996, lng: 127.28711 };
 const RADIUS = 1500;
 
 export default function MapPage() {
@@ -45,15 +45,38 @@ export default function MapPage() {
     }, 500);
   };
 
-  // 그레이스풀 디그레이드: 키 미설정 또는 SDK 로드 실패
-  if (!kakaoKey || error) {
+  // 그레이스풀 디그레이드 ①: 키 미설정
+  if (!kakaoKey) {
     return (
       <PageLayout>
         <Header title="가맹점 지도" />
         <div className="px-4 py-4">
           <div className="w-full h-[70vh] bg-gray-100 rounded-2xl flex items-center justify-center px-6">
             <p className="text-gray-500 text-sm text-center leading-relaxed">
-              지도를 표시하려면 VITE_KAKAO_MAPS_KEY 설정이 필요합니다.
+              VITE_KAKAO_MAPS_KEY 설정이 필요합니다.
+              <br />
+              frontend/.env 에 키를 추가한 뒤 dev 서버를 재시작하세요.
+            </p>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  // 그레이스풀 디그레이드 ②: SDK 로드 실패 (키는 있으나 카카오 콘솔 설정 문제 가능성 높음)
+  if (error) {
+    // 브라우저 QA 에서 원인(도메인 미등록/카카오맵 비활성/REST 키 오용)을 식별하기 위한 로그
+    console.error('[KakaoMap] SDK load error:', error);
+    return (
+      <PageLayout>
+        <Header title="가맹점 지도" />
+        <div className="px-4 py-4">
+          <div className="w-full h-[70vh] bg-gray-100 rounded-2xl flex items-center justify-center px-6">
+            <p className="text-gray-500 text-sm text-center leading-relaxed">
+              카카오맵 SDK 로드에 실패했습니다.
+              <br />
+              카카오 개발자 콘솔에서 ① JavaScript 키인지(REST 키 X) ② Web 플랫폼에
+              http://localhost:5173 등록 여부 ③ 카카오맵 활성화 ON 여부를 확인하세요.
             </p>
           </div>
         </div>
