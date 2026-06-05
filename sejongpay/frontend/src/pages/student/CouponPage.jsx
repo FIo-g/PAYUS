@@ -13,7 +13,8 @@ export default function CouponPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    couponService.getMine({ isUsed: 'false' }).then((res) => { setCoupons(res.data.coupons); setLoading(false); }).catch(() => setLoading(false));
+    // 백엔드 GET /coupons/me 는 { success, data: { items, pagination } } 형태로 응답한다.
+    couponService.getMine({ isUsed: 'false' }).then((res) => { setCoupons(res?.data?.items ?? []); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
   return (

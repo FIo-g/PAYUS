@@ -13,7 +13,7 @@ export default function NotificationPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    notificationService.getAll().then((res) => { setNotifications(res.data.notifications); setLoading(false); }).catch(() => setLoading(false));
+    notificationService.getAll().then((res) => { setNotifications(res?.data?.items ?? []); setLoading(false); }).catch(() => { setNotifications([]); setLoading(false); });
   }, []);
 
   const handleMarkAllRead = async () => {

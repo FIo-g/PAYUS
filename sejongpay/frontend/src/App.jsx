@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -50,6 +51,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <ErrorBoundary>
           <Routes>
             {/* 인증 */}
             <Route path="/login" element={<LoginPage />} />
@@ -84,6 +86,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
+          </ErrorBoundary>
 
           <Toaster
             position="top-center"

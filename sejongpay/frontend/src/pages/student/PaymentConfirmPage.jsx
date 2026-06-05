@@ -40,7 +40,7 @@ export default function PaymentConfirmPage() {
         setMerchant(res.data);
         return couponService.getMine({ isUsed: 'false' });
       })
-      .then((res) => setCoupons(res.data?.coupons || []))
+      .then((res) => setCoupons(res?.data?.items ?? []))
       .catch((err) => {
         toast.error(err.response?.data?.error?.message || 'QR 검증 실패');
         navigate('/scan');

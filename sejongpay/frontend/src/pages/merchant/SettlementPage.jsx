@@ -27,18 +27,15 @@ export default function SettlementPage() {
 
   // 가맹점 ID 조회 (가맹점주 본인의 가맹점)
   useEffect(() => {
-    merchantService.getAll({ limit: 1 })
-      .then((res) => {
-        const m = res.data?.merchants?.[0];
-        if (m) setMerchantId(m._id);
-      })
+    merchantService.getMine()
+      .then((res) => { if (res.data?._id) setMerchantId(res.data._id); })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!merchantId) return;
     setLoading(true);
-    merchantService.getSettlement(merchantId, { startDate, endDate })
+    merchantService.getSettlement(merchantId, { from: startDate, to: endDate })
       .then((res) => setData(res.data))
       .catch(() => toast.error('정산 데이터를 불러올 수 없습니다.'))
       .finally(() => setLoading(false));
