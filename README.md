@@ -6,14 +6,12 @@
 
 ---
 
-## 📌 빠른 컨텍스트 (Claude Code용)
+## 📌 프로젝트 개요
 
-이 섹션은 Claude Code가 작업 시작 시 가장 먼저 읽어야 할 핵심 정보입니다. 코드 작성 전 반드시 확인하세요.
-
-### 프로젝트 한 줄 요약
+### 한 줄 요약
 **MongoDB + Express + React 기반의 학생 전용 QR 결제 시스템.** 학번 인증으로 가입한 학생이 지갑에 충전한 뒤 조치원읍 가맹점에서 QR 결제하면 캐시백·스탬프·쿠폰이 적립되는 구조.
 
-### 절대 규칙 (위반 시 결제 시스템이 깨짐)
+### 핵심 설계 원칙 (결제 무결성)
 
 1. **모든 금액은 정수(원 단위)**. `float`/`parseFloat` 절대 사용 금지. 캐시백 계산은 `Math.floor(amount * rate)`
 2. **결제는 반드시 MongoDB session(트랜잭션) 사용**. `mongoose.startSession() + startTransaction()`
@@ -66,8 +64,8 @@
 
 ```
 sejongpay/
-├── README.md                  ← 이 파일 (Claude Code 최우선 참고)
-├── CLAUDE.md                  ← Claude Code 추가 컨텍스트 (있다면)
+├── README.md                  ← 이 파일 (프로젝트 개요)
+├── CLAUDE.md                  ← Claude Code 작업 지침
 ├── docs/
 │   ├── api-contract.swagger.yaml   ← API 명세 (단일 소스 of truth)
 │   ├── database-erd.md              ← 7개 컬렉션 ERD
